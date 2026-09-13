@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Disable Windows Snap Trial
+Exec=@HOME@/.local/bin/disable-windows-snap-trial
+Icon=preferences-system-windows
+Terminal=false
+Categories=Settings;

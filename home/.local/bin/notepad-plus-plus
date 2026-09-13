@@ -1,0 +1,5 @@
+#!/bin/sh
+export WINEPREFIX="$HOME/.local/share/notepad-plus-plus/wine"
+export WINEDEBUG=-all
+export WINEDLLOVERRIDES="mscoree,mshtml="
+exec /usr/bin/wine "$HOME/.local/share/notepad-plus-plus/8.9.8/notepad++.exe" "$@"

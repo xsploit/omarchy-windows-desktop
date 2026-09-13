@@ -1,0 +1,66 @@
+#!/usr/bin/python3
+"""Software PQ output exposure. Does not use DDC or claim a physical panel maximum."""
+import os, json, subprocess, sys, re, time, fcntl
+from pathlib import Path
+ROOT=Path('@HOME@/.local/share/desktop-integration/hdr-brightness')
+CONFIG=Path('@HOME@/.config/hypr')
+STATE=ROOT/'state.json'
+MODULE=CONFIG/'hdr-brightness.lua'
+SHADER=CONFIG/'shaders/hdr-brightness.frag'
+
+def run(args):
+ r=subprocess.run(args,capture_output=True,text=True,timeout=15)
+ if r.returncode: raise RuntimeError((r.stderr or r.stdout).strip())
+ return r.stdout
+
+def atomic(p,s):
+ t=p.with_suffix(p.suffix+'.tmp');t.write_text(s);t.replace(p)
+
+def main():
+ instances=json.loads(run(['hyprctl','instances','-j']))
+ instance=next((i for i in instances if i['instance']==os.environ.get('HYPRLAND_INSTANCE_SIGNATURE')),instances[0])
+ os.environ['HYPRLAND_INSTANCE_SIGNATURE']=instance['instance']
+ os.environ['WAYLAND_DISPLAY']=instance['wl_socket']
+ try: state=json.loads(STATE.read_text())
+ except FileNotFoundError: state={'level':0,'enabled':False}
+ action=sys.argv[1] if len(sys.argv)>1 else 'status'
+ if action=='status': print(json.dumps(state));return
+ monitor=next((m for m in json.loads(run(['hyprctl','monitors','-j'])) if m['name']=='HDMI-A-1'),None)
+ if action=='restore':
+  text=(CONFIG/'monitors.lua').read_text()
+  text=re.sub(r'sdrbrightness\s*=\s*[\d.]+', 'sdrbrightness = '+str(state.get('previous_sdr_brightness',1.6)),text,count=1)
+  atomic(CONFIG/'monitors.lua',text)
+  atomic(MODULE,'-- HDR output exposure disabled.\nhl.config({decoration={screen_shader=""}})\n')
+  state.update(level=0,enabled=False)
+ elif action in ('set','refresh'):
+  if action=='refresh' and not state.get('enabled'):return
+  level=int(sys.argv[2]) if action=='set' else state['level']
+  if not 0<=level<=100:raise ValueError('Brightness must be 0–100')
+  if not monitor or monitor['colorManagementPreset']!='hdr':raise RuntimeError('The LG output must be connected and in HDR mode.')
+  if not state.get('enabled'):
+   state['previous_sdr_brightness']=monitor['sdrBrightness']
+  gain=1+level/20
+  shader=(ROOT/'brightness.frag.in').read_text().replace('OUTPUT_ID',str(monitor['id'])).replace('EXPOSURE_GAIN',f'{gain:.4f}')
+  candidate=ROOT/'candidate.frag';candidate.write_text(shader)
+  run(['glslangValidator','-S','frag',str(candidate)])
+  atomic(SHADER,shader)
+  # Avoid stacking the previous encoded-PQ brightness adjustment with exposure.
+  text=(CONFIG/'monitors.lua').read_text()
+  text=re.sub(r'sdrbrightness\s*=\s*[\d.]+','sdrbrightness = 1.0',text,count=1)
+  atomic(CONFIG/'monitors.lua',text)
+  atomic(MODULE,'-- Software HDR output exposure, controlled by HDR Brightness.\n'
+     'hl.config({decoration={screen_shader="'+str(SHADER)+'"}})\n')
+  state.update(level=level,enabled=True,gain=gain)
+ else:raise ValueError('Expected status, set, restore, or refresh')
+ run(['hyprctl','reload'])
+ errors=run(['hyprctl','configerrors']).strip()
+ if errors:raise RuntimeError(errors)
+ atomic(STATE,json.dumps(state))
+ print(json.dumps(state))
+
+if __name__=='__main__':
+ try:
+  with (ROOT/'control.lock').open('w') as lock:
+   fcntl.flock(lock,fcntl.LOCK_EX);main()
+ except Exception as e:
+  print(str(e),file=sys.stderr);sys.exit(1)

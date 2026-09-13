@@ -1,0 +1,2 @@
+#!/bin/sh
+exec env QT_QPA_PLATFORM=wayland @HOME@/.local/share/desktop-integration/hdr-brightness/panel

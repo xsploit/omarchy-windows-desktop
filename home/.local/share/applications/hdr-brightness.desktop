@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=HDR Brightness
+Comment=Adjust software HDR output brightness
+Exec=@HOME@/.local/bin/hdr-brightness
+Icon=display-brightness
+Categories=Settings;HardwareSettings;
+Terminal=false

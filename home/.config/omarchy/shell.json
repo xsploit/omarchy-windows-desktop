@@ -1,0 +1,48 @@
+{
+  "bar": {
+    "centerAnchor": "undercover.win11-taskbar",
+    "layout": {
+      "center": [
+        {
+          "id": "undercover.win11-taskbar"
+        }
+      ],
+      "left": [
+        {
+          "id": "undercover.win11-weather"
+        }
+      ],
+      "right": [
+        {
+          "id": "subsect.tray"
+        },
+        {
+          "id": "omarchy.agents"
+        },
+        {
+          "id": "undercover.win11-actioncenter"
+        },
+        {
+          "id": "undercover.win11-clock"
+        },
+        {
+          "id": "undercover.win11-showdesktop"
+        }
+      ]
+    },
+    "position": "bottom",
+    "transparent": true,
+    "id": "subsect.bar",
+    "locked": true
+  },
+  "idle": {
+    "lock": 1800,
+    "screensaver": 300
+  },
+  "plugins": [
+    {
+      "id": "omarchy.menu"
+    }
+  ],
+  "version": 1
+}

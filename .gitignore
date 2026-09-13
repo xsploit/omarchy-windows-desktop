@@ -1,0 +1,12 @@
+build/
+__pycache__/
+*.pyc
+*.so
+*.wav
+*.mp3
+*.log
+*.bak*
+.env*
+apps.json
+state.json
+*.lock

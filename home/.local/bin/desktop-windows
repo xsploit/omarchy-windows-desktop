@@ -1,0 +1,269 @@
+#!/usr/bin/python3
+"""Mouse desktop window controls for Hyprland; no changes to agent services."""
+import json, os, re, selectors, socket, subprocess, sys, time, signal
+from pathlib import Path
+
+runtime = Path(os.environ['XDG_RUNTIME_DIR']) / 'hypr' / os.environ['HYPRLAND_INSTANCE_SIGNATURE']
+control = runtime / 'desktop-windows.sock'
+state_file = runtime / 'desktop-windows.json'
+HIDDEN = 'special:desktop-minimized'
+
+def query(kind):
+    return json.loads(subprocess.check_output(['hyprctl', '-j', kind], text=True))
+
+def dispatch(expression):
+    result = subprocess.run(['hyprctl', 'dispatch', expression], capture_output=True, text=True, timeout=5)
+    if result.returncode or result.stdout.strip() != 'ok':
+        raise RuntimeError(result.stdout + result.stderr)
+
+def window_arg(address):
+    if not re.fullmatch(r'0x[0-9a-f]+', address):
+        raise ValueError('Invalid window address')
+    return json.dumps('address:' + address)
+
+class Windows:
+    def __init__(self):
+        try: self.saved = json.loads(state_file.read_text())
+        except (FileNotFoundError, ValueError): self.saved = {}
+        self.pending_fit = {}
+        self.desktop_batch = []
+        self.reconcile()
+
+    def save(self):
+        temporary = state_file.with_suffix('.tmp')
+        temporary.write_text(json.dumps(self.saved))
+        temporary.replace(state_file)
+
+    def reconcile(self):
+        live = {w['address']: w for w in query('clients')}
+        self.saved = {a: s for a, s in self.saved.items() if a in live and live[a]['pid'] == s['pid']}
+        for a, w in live.items():
+            if w['workspace']['name'] == HIDDEN and a not in self.saved:
+                self.saved[a] = dict(pid=w['pid'], workspace='1', pinned=False)
+        self.save()
+
+    def get(self, address):
+        return next((w for w in query('clients') if w['address'] == address), None)
+
+    def fit(self, address):
+        w = self.get(address)
+        if not w or not w['floating'] or w['fullscreen'] or w['workspace']['name'].startswith('special:'):
+            return
+        m = next((m for m in query('monitors') if m['id'] == w['monitor']), None)
+        if not m: return
+        mw, mh = m['width'] / m['scale'], m['height'] / m['scale']
+        if m['transform'] % 2: mw, mh = mh, mw
+        left, top, right, bottom = m['reserved']
+        # Keep the compositor-drawn title bar inside the work area.
+        native_bar = re.fullmatch(r'(google-chrome.*|chromium.*|firefox|steam|discord|com\.stremio\.Stremio|com\.anthropic\.Claude|org\.gnome\..*)', w['class']) or (w['class'] == 'Chatgpt' and not w['xwayland']) or w['title'] == 'Oma Voice'
+        titlebar = 32 if not native_bar and any(p.get('name') == 'hyprbars' for p in query('plugin list')) else 0
+        x0, y0 = m['x'] + left + 8, m['y'] + top + 8 + titlebar
+        width, height = int(mw - left - right - 16), int(mh - top - bottom - 16 - titlebar)
+        ww, wh = min(w['size'][0], width), min(w['size'][1], height)
+        x, y = int(max(x0, min(w['at'][0], x0 + width - ww))), int(max(y0, min(w['at'][1], y0 + height - wh)))
+        if [ww, wh] != w['size']:
+            dispatch('hl.dsp.window.resize({ window = ' + window_arg(address) + ', x = ' + str(ww) + ', y = ' + str(wh) + ' })')
+        if [x, y] != w['at'] or [ww, wh] != w['size']:
+            dispatch('hl.dsp.window.move({ window = ' + window_arg(address) + ', x = ' + str(x) + ', y = ' + str(y) + ' })')
+
+    def fit_all(self):
+        for w in query('clients'): self.fit(w['address'])
+
+    def minimize(self, address):
+        w = self.get(address)
+        if not w or address in self.saved or w['workspace']['name'].startswith('special:'): return
+        self.saved[address] = dict(pid=w['pid'], workspace=w['workspace']['name'], pinned=w['pinned'])
+        self.save()
+        if w['pinned']:
+            dispatch('hl.dsp.window.pin({ window = ' + window_arg(address) + ' })')
+        dispatch('hl.dsp.window.move({ window = ' + window_arg(address) + ', workspace = ' + json.dumps(HIDDEN) + ', follow = false })')
+        if self.get(address)['workspace']['name'] != HIDDEN:
+            raise RuntimeError('Window did not minimize')
+
+    def focus(self, address):
+        dispatch('hl.dsp.window.alter_zorder({ window = ' + window_arg(address) + ', mode = "top" })')
+        dispatch('hl.dsp.focus({ window = ' + window_arg(address) + ' })')
+
+    def restore(self, address, focus=True):
+        saved = self.saved.get(address)
+        if not saved: return
+        w = self.get(address)
+        if w and w['pid'] == saved['pid']:
+            dispatch('hl.dsp.window.move({ window = ' + window_arg(address) + ', workspace = ' + json.dumps(saved['workspace']) + ', follow = false })')
+            if saved['pinned'] and not w['pinned']:
+                dispatch('hl.dsp.window.pin({ window = ' + window_arg(address) + ' })')
+            if focus: self.focus(address)
+        self.saved.pop(address, None)
+        self.save()
+        self.fit(address)
+
+    def command(self, action, address='active'):
+        if action == 'app-toggle':
+            clients = [w for w in query('clients') if w['class'].lower() == address.lower()]
+            if not clients: return
+            active = query('activewindow').get('address')
+            selected = next((w for w in clients if w['address'] == active), None)
+            if selected is None:
+                selected = min(clients, key=lambda w: w.get('focusHistoryID', 99999))
+            self.command('toggle', selected['address'])
+            return
+        if action == 'show-desktop':
+            if self.desktop_batch:
+                for a in self.desktop_batch: self.restore(a, False)
+                self.desktop_batch = []
+            else:
+                workspace = query('activeworkspace')['id']
+                self.desktop_batch = [w['address'] for w in query('clients') if w['workspace']['id'] == workspace and w['address'] not in self.saved]
+                for a in self.desktop_batch: self.minimize(a)
+            return
+        if action in ('center-taskbar', 'center-undercover-taskbar'):
+            path = Path.home() / '.config/omarchy/shell.json'
+            config = json.loads(path.read_text())
+            item = {'id': 'undercover.win11-taskbar' if action == 'center-undercover-taskbar' else 'subsect.active-window'}
+            for section, entries in config['bar']['layout'].items():
+                for entry in entries:
+                    if entry['id'] == item['id']: item = entry
+                config['bar']['layout'][section] = [e for e in entries if e['id'] != item['id']]
+            config['bar']['layout']['center'].append(item)
+            config['bar']['centerAnchor'] = item['id']
+            path.write_text(json.dumps(config, indent=2) + '\n')
+            return
+        if action == 'fit-all':
+            self.fit_all()
+            return
+        if action == 'restore-all':
+            for a in list(self.saved): self.restore(a, False)
+            return
+        if address == 'active': address = query('activewindow').get('address', '')
+        if not address: return
+        window_arg(address)
+        if action in ('snap-left', 'snap-right'):
+            if address in self.saved: self.restore(address)
+            w = self.get(address)
+            if not w: return
+            if w['fullscreen']:
+                dispatch('hl.dsp.window.fullscreen_state({ window = ' + window_arg(address) + ', internal = 0, client = 0 })')
+            if not w['floating']:
+                dispatch('hl.dsp.window.float({ window = ' + window_arg(address) + ', action = "toggle" })')
+            m = next(m for m in query('monitors') if m['id'] == w['monitor'])
+            mw, mh = m['width']/m['scale'], m['height']/m['scale']
+            if m['transform'] % 2: mw, mh = mh, mw
+            left, top, right, bottom = m['reserved']
+            width = int((mw-left-right)/2)-12
+            height = int(mh-top-bottom)-16
+            x = int(m['x']+left+8+(0 if action=='snap-left' else (mw-left-right)/2))
+            y = int(m['y']+top+8)
+            dispatch('hl.dsp.window.resize({ window = '+window_arg(address)+', x = '+str(width)+', y = '+str(height)+' })')
+            dispatch('hl.dsp.window.move({ window = '+window_arg(address)+', x = '+str(x)+', y = '+str(y)+' })')
+        elif action == 'maximize-on':
+            if address in self.saved: self.restore(address)
+            if self.get(address)['fullscreen'] != 1: self.command('maximize', address)
+        elif action == 'down':
+            if self.get(address)['fullscreen']: self.command('maximize', address)
+            else: self.minimize(address)
+        elif action == 'fit': self.fit(address)
+        elif action == 'end-task':
+            window = self.get(address)
+            if window and window['pid'] > 1:
+                os.kill(window['pid'], signal.SIGKILL)
+        elif action == 'activate':
+            if address in self.saved: self.restore(address)
+            else: self.focus(address)
+        elif action == 'maximize':
+            if address in self.saved: self.restore(address)
+            dispatch('hl.dsp.window.fullscreen({ window = ' + window_arg(address) + ', mode = "maximized" })')
+            self.pending_fit[address] = time.monotonic() + 0.4
+        elif action == 'minimize': self.minimize(address)
+        elif action == 'restore': self.restore(address)
+        elif action == 'toggle':
+            if address in self.saved: self.restore(address)
+            elif query('activewindow').get('address') == address: self.minimize(address)
+            else: self.focus(address)
+        else: raise ValueError('Unknown command')
+
+    def event(self, line):
+        event, _, data = line.partition('>>')
+        if event == 'openwindow':
+            address = '0x' + data.split(',', 1)[0].removeprefix('0x')
+            self.pending_fit[address] = time.monotonic() + 0.5
+        elif event in ('monitoraddedv2', 'monitorremoved'):
+            self.pending_fit['all'] = time.monotonic() + 0.5
+        elif event == 'minimized':
+            address, value = data.split(',', 1)
+            self.command('minimize' if value == '1' else 'restore', '0x' + address.removeprefix('0x'))
+        elif event == 'activewindowv2':
+            address = '0x' + data.removeprefix('0x')
+            if not re.fullmatch(r'0x[0-9a-f]+', address) or address in self.saved:
+                return
+            # Check and raise atomically inside the compositor. Queued old focus
+            # events must never raise a window after the user switches again.
+            # Raising does not focus, restore, resize, or reposition any window.
+            dispatch('function() local w = hl.get_active_window(); '
+                     'if w and w.address == ' + json.dumps(address) +
+                     ' and w.mapped and not w.hidden and w.workspace '
+                     'and not w.workspace.special then '
+                     'if w.fullscreen == 1 then '
+                     'local others = hl.get_windows({workspace=w.workspace, floating=true}); '
+                     'for i=#others,1,-1 do local other=others[i]; '
+                     'if other ~= w and not other.pinned and not other.hidden '
+                     'and other.allowed_over_fullscreen then '
+                     'hl.dispatch(hl.dsp.window.alter_zorder({window=other,mode="bottom"})) '
+                     'end end end; '
+                     'hl.dispatch(hl.dsp.window.alter_zorder({window=w,mode="top"})) end end')
+        elif event == 'closewindow':
+            self.saved.pop('0x' + data.removeprefix('0x'), None)
+            self.save()
+
+
+def serve():
+    events = socket.socket(socket.AF_UNIX)
+    events.connect(str(runtime / '.socket2.sock'))
+    control.unlink(missing_ok=True)
+    server = socket.socket(socket.AF_UNIX)
+    server.bind(str(control))
+    os.chmod(control, 0o600)
+    server.listen(8)
+    windows = Windows()
+    selector = selectors.DefaultSelector()
+    selector.register(events, selectors.EVENT_READ, 'events')
+    selector.register(server, selectors.EVENT_READ, 'server')
+    pending = ''
+    while True:
+        for address, deadline in list(windows.pending_fit.items()):
+            if time.monotonic() >= deadline:
+                windows.pending_fit.pop(address, None)
+                try:
+                    if address == 'all': windows.fit_all()
+                    else: windows.fit(address)
+                except Exception as e: print('Fit failed:', e, flush=True)
+        timeout = max(0, min(windows.pending_fit.values()) - time.monotonic()) if windows.pending_fit else None
+        for key, _ in selector.select(timeout):
+            if key.data == 'events':
+                data = events.recv(65536)
+                if not data: return
+                pending += data.decode()
+                while '\n' in pending:
+                    line, pending = pending.split('\n', 1)
+                    try: windows.event(line)
+                    except Exception as e: print('Event failed:', e, flush=True)
+            else:
+                connection, _ = server.accept()
+                with connection:
+                    connection.settimeout(2)
+                    try:
+                        request = json.loads(connection.recv(4096))
+                        windows.command(*request)
+                        connection.sendall(b'ok')
+                    except Exception as e:
+                        connection.sendall(str(e).encode())
+
+if __name__ == '__main__':
+    if sys.argv[1:] == ['serve']: serve()
+    else:
+        with socket.socket(socket.AF_UNIX) as client:
+            client.settimeout(10)
+            client.connect(str(control))
+            client.sendall(json.dumps(sys.argv[1:]).encode())
+            result = client.recv(4096).decode()
+            print(result)
+            sys.exit(0 if result == 'ok' else 1)

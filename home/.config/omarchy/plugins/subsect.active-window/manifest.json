@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "subsect.active-window",
+  "name": "Windows Taskbar",
+  "version": "1.0.0",
+  "author": "Omarchy",
+  "description": "Title of the focused window",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "ActiveWindow.qml"
+  },
+  "barWidget": {
+    "displayName": "Windows Taskbar",
+    "description": "Focus, minimize, maximize, restore, and close open windows",
+    "category": "Compositor",
+    "allowMultiple": false,
+    "defaultSection": "left"
+  },
+  "omarchy": {
+    "clonedFrom": "omarchy.active-window"
+  }
+}

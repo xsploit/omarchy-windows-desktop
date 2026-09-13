@@ -1,0 +1,7 @@
+#!/usr/bin/python3
+from pathlib import Path
+import subprocess,os,json
+Path.home().joinpath('.config/hypr/windows-snap-trial.disabled').touch()
+os.environ['HYPRLAND_INSTANCE_SIGNATURE']=json.loads(subprocess.check_output(['hyprctl','instances','-j']))[0]['instance']
+subprocess.run(['hyprctl','plugin','unload',"@HOME@/.local/lib/hyprland/omarchy-windows-snap-0.56.2-7044989e22baf116.so"],check=True)
+subprocess.run(['hyprctl','reload'],check=True)

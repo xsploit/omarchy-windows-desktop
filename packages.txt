@@ -1,0 +1,11 @@
+omarchy 4.0.3-1
+hyprland 0.56.2-2
+quickshell 0.3.1-1
+pipewire 1:1.6.8-1
+wireplumber 0.5.17-1
+foot 1.28.0-2
+voxtype-bin 1.0.1-1
+discord 1:1.0.157-1
+steam 1.0.0.87-3
+obs-studio 32.2.2-1
+wine 11.17-1

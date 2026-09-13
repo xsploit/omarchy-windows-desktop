@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Notepad++
+Comment=Notepad++ text and source-code editor (Wine)
+Exec=@HOME@/.local/bin/notepad-plus-plus %F
+Icon=notepad-plus-plus
+StartupWMClass=notepad++.exe
+Terminal=false
+Categories=Utility;TextEditor;Development;
+MimeType=text/plain;

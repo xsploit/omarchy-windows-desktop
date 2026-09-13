@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Task Manager TMOG
+Comment=Native system monitor and task manager
+Exec=@HOME@/.local/bin/tmog-task-manager
+Icon=tmog-task-manager
+Terminal=false
+Categories=System;Monitor;
+Actions=Summon;
+
+# The bindable fallback for desktops without the GlobalShortcuts portal:
+# launching a second copy forwards to the running instance and raises its
+# window, so a key bound to this action (or to the plain Exec line above)
+# summons TMOG from anywhere.
+[Desktop Action Summon]
+Name=Summon TMOG
+Exec=@HOME@/.local/bin/tmog-task-manager

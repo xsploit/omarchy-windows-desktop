@@ -1,0 +1,1 @@
+-- HDR exposure is opt-in; see profiles/lg-4k-hdr.

@@ -1,0 +1,23 @@
+#version 300 es
+precision highp float;
+in vec2 v_texcoord;
+layout(location = 0) out vec4 fragColor;
+uniform sampler2D tex;
+uniform int wl_output;
+// Final monitor output is already ST2084 PQ in Hyprland 0.56.2.
+// Decode to linear light before changing exposure, then encode to PQ again.
+vec3 pqDecode(vec3 x) {
+    vec3 p = pow(clamp(x, 0.0, 1.0), vec3(32.0 / 2523.0));
+    return pow(max(p - 3424.0/4096.0, 0.0) /
+        max(2413.0/128.0 - (2392.0/128.0)*p, vec3(0.000001)), vec3(16384.0/2610.0));
+}
+vec3 pqEncode(vec3 x) {
+    vec3 p = pow(clamp(x, 0.0, 1.0), vec3(2610.0 / 16384.0));
+    return pow((3424.0/4096.0 + (2413.0/128.0)*p) /
+        (1.0 + (2392.0/128.0)*p), vec3(2523.0/32.0));
+}
+void main() {
+    vec4 c = texture(tex, v_texcoord);
+    if (wl_output == OUTPUT_ID) c.rgb = pqEncode(pqDecode(c.rgb) * EXPOSURE_GAIN);
+    fragColor = c;
+}

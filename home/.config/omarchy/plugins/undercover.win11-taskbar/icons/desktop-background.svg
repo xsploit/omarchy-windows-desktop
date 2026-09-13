@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3840" height="2160" viewBox="0 0 3840 2160">
+<defs>
+<linearGradient id="bg" x2="1" y2="1"><stop stop-color="#001622"/><stop offset=".5" stop-color="#040c21"/><stop offset="1" stop-color="#300b44"/></linearGradient>
+<radialGradient id="glow"><stop stop-color="#7500ff" stop-opacity=".82"/><stop offset=".6" stop-color="#5300ae" stop-opacity=".3"/><stop offset="1" stop-color="#14042a" stop-opacity="0"/></radialGradient>
+<linearGradient id="rim" x2=".8" y2="1"><stop stop-color="#031424"/><stop offset=".5" stop-color="#073948"/><stop offset=".74" stop-color="#1650d7"/><stop offset=".88" stop-color="#731dff"/><stop offset="1" stop-color="#fd16eb"/></linearGradient>
+<linearGradient id="orb" x2=".7" y2="1"><stop stop-color="#001522"/><stop offset=".58" stop-color="#00142c"/><stop offset="1" stop-color="#110a58"/></linearGradient>
+<filter id="blur"><feGaussianBlur stdDeviation="85"/></filter>
+</defs>
+<rect width="3840" height="2160" fill="url(#bg)"/>
+<ellipse cx="2900" cy="1760" rx="1100" ry="850" fill="url(#glow)" filter="url(#blur)"/>
+<ellipse cx="1880" cy="1020" rx="1250" ry="1260" fill="url(#rim)"/>
+<ellipse cx="1880" cy="995" rx="1238" ry="1250" fill="url(#orb)"/>
+<ellipse cx="1000" cy="1850" rx="540" ry="240" fill="#007ea7" opacity=".15" filter="url(#blur)"/>
+</svg>
