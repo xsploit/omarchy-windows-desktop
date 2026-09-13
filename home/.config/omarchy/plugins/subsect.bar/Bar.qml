@@ -863,6 +863,7 @@ Item {
   }
 
   function toggleTransparency() {
+    if (root.layoutLocked) return
     var nextTransparent = !(root.requestedTransparent === true)
     if (root.shell && typeof root.shell.mutateShellConfig === "function") {
       root.shell.mutateShellConfig(function(config) {
