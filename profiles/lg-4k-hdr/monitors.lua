@@ -2,7 +2,7 @@
 -- List current monitors and supported resolutions with: hyprctl monitors all
 
 local omarchy_gdk_scale = 2
-local omarchy_monitor_scale = 2
+local omarchy_monitor_scale = 1.75
 
 hl.env("GDK_SCALE", tostring(omarchy_gdk_scale))
 hl.monitor({
@@ -12,6 +12,11 @@ hl.monitor({
   scale = omarchy_monitor_scale,
   bitdepth = 10,
   cm = "hdr",
+  -- Nits that SDR white maps to before sdrbrightness multiplies it. Hyprland
+  -- defaults to 80, which is the old sRGB paper-white spec and far dimmer than
+  -- anything a TV expects; 203 is the ITU BT.2408 HDR reference white that
+  -- Windows also uses as its SDR baseline in HDR mode.
+  sdr_max_luminance = 203,
   sdrbrightness = 1.0,
   sdrsaturation = 0.98,
 })

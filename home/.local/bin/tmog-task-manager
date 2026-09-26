@@ -1,8 +1,3 @@
 #!/bin/sh
-if [ -x "$HOME/.local/share/tmog/0.1.3/bin/tmog-task-manager" ]; then
- exec env QT_QPA_PLATFORM=wayland "$HOME/.local/share/tmog/0.1.3/bin/tmog-task-manager" "$@"
-fi
-for app in gnome-system-monitor missioncenter; do
- if command -v "$app" >/dev/null 2>&1; then exec "$app" "$@"; fi
-done
-exec foot -e btop
+# Use the desktop title bar through native Wayland decoration negotiation.
+exec env QT_QPA_PLATFORM=wayland @HOME@/.local/share/tmog/0.1.3/bin/tmog-task-manager "$@"

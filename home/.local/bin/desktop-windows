@@ -107,6 +107,26 @@ class Windows:
                 selected = min(clients, key=lambda w: w.get('focusHistoryID', 99999))
             self.command('toggle', selected['address'])
             return
+        if action == 'app-cycle':
+            # Windows-style grouped taskbar button: with one window this is
+            # app-toggle, with several each click walks to the next one.
+            clients = [w for w in query('clients') if w['class'].lower() == address.lower()]
+            if not clients: return
+            if len(clients) == 1:
+                self.command('toggle', clients[0]['address'])
+                return
+            # Address order, not focus order: focusing a window rewrites its
+            # focusHistoryID, so a focus-ordered ring would swap the two most
+            # recent windows back and forth instead of walking the whole stack.
+            clients.sort(key=lambda w: w['address'])
+            active = query('activewindow').get('address')
+            index = next((i for i, w in enumerate(clients) if w['address'] == active), None)
+            if index is None:
+                target = min(clients, key=lambda w: w.get('focusHistoryID', 99999))
+            else:
+                target = clients[(index + 1) % len(clients)]
+            self.command('activate', target['address'])
+            return
         if action == 'show-desktop':
             if self.desktop_batch:
                 for a in self.desktop_batch: self.restore(a, False)

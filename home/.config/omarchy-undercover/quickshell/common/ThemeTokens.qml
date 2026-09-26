@@ -20,10 +20,10 @@ QtObject {
 
   // Color tokens tailored for macOS Sequoia and Windows 11 Fluent
   readonly property color bgColor: isDark ? (isWindows ? "#202024" : "#1e1e24") : (isWindows ? "#f3f3f3" : "#f5f5f7")
-  readonly property color surfaceColor: isDark
+  readonly property color surfaceColor: isDark 
     ? (isWindows ? Qt.rgba(0.12, 0.13, 0.17, 0.88) : Qt.rgba(0.14, 0.14, 0.18, 0.82))
     : (isWindows ? Qt.rgba(0.97, 0.97, 0.98, 0.90) : Qt.rgba(0.98, 0.98, 1.0, 0.82))
-
+  
   readonly property color textColor: isDark ? "#ffffff" : "#1a1a1a"
   readonly property color subTextColor: isDark ? Qt.rgba(1.0, 1.0, 1.0, 0.65) : Qt.rgba(0.0, 0.0, 0.0, 0.60)
   readonly property color accentColor: isWindows ? (isDark ? "#60cdff" : "#0067c0") : "#007aff"

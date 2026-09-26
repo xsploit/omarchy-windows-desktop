@@ -1,5 +1,14 @@
 # Verification
 
+Checks on 2026-09-26 (source machine, Omarchy 4.0.4):
+
+- QML parsing (Qt 6 `qmlformat`) and a runtime load of every changed Quickshell flyout (Wi-Fi, Bluetooth, sound, quick settings, widgets, Start); each loaded without warnings or errors.
+- Settings launched through `omarchy-win11-settings`, reported live text scale, terminal size and HDR state over IPC, switched sections on a second launch without spawning another instance, and logged no errors. Opening it changed no setting.
+- `desktop-settings-control` unit tests with mocked commands: input validation, foot config validated before replacement, exact text-scale restore, HDR only on explicit request.
+- Scan of the published files for home paths, e-mail addresses, credentials, network names and IP addresses.
+- Not verified: pointer-driven clicks, hover-preview behaviour under heavy window churn, a real Wi-Fi password connection, and a clean-machine install.
+
+
 Packaging checks on 2026-09-12:
 
 - Staged install into an empty temporary home, while preserving an existing monitor file.

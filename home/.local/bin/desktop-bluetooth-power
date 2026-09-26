@@ -1,0 +1,28 @@
+#!/usr/bin/python3
+"""Power Bluetooth on after clearing a software radio block."""
+import subprocess
+import sys
+import time
+
+def run(*args):
+    return subprocess.run(args, capture_output=True, text=True, timeout=12)
+
+if len(sys.argv) != 2 or sys.argv[1] not in ('on', 'off'):
+    sys.exit('Usage: desktop-bluetooth-power on|off')
+
+target = sys.argv[1]
+if target == 'on':
+    result = run('rfkill', 'unblock', 'bluetooth')
+    if result.returncode:
+        sys.exit(result.stderr or 'Unable to unblock Bluetooth')
+
+for attempt in range(12):
+    state = run('bluetoothctl', 'show')
+    if ('Powered: ' + ('yes' if target == 'on' else 'no')) in state.stdout:
+        sys.exit(0)
+    result = run('bluetoothctl', 'power', target)
+    time.sleep(.5)
+
+message = 'Bluetooth did not turn ' + target + '. ' + result.stdout.strip()
+run('notify-send', 'Bluetooth', message)
+sys.exit(message)

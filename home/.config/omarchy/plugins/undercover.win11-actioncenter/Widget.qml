@@ -14,7 +14,7 @@ BarWidget {
   property bool wifiOn: true
   property real volumeLevel: 0.7
   property bool isMuted: false
-  property int batteryPct: 90
+  property int batteryPct: -1
   property bool isCharging: false
 
   Process {
@@ -24,7 +24,7 @@ BarWidget {
       "bash", "-c",
       "wifi=$(nmcli radio wifi 2>/dev/null || echo 'disabled'); " +
       "vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null || echo 'Volume: 0.70'); " +
-      "bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1 || echo '90'); " +
+      "bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1); " +
       "chg=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -1 || echo 'Discharging'); " +
       "echo \"$wifi|$vol|$bat|$chg\""
     ]
@@ -42,7 +42,7 @@ BarWidget {
             if (!isNaN(v)) root.volumeLevel = v
           }
           var b = parseInt(parts[2])
-          if (!isNaN(b)) root.batteryPct = b
+          root.batteryPct = isNaN(b) ? -1 : b
           root.isCharging = (parts[3].toLowerCase().indexOf("charg") !== -1)
         }
       }
@@ -86,6 +86,7 @@ BarWidget {
       }
 
       Text {
+        visible: root.batteryPct >= 0
         text: root.isCharging ? "󰂄" : "󰁹"
         font.pixelSize: 14
         color: root.bar && root.bar.foreground !== undefined ? root.bar.foreground : "#ffffff"
@@ -100,16 +101,16 @@ BarWidget {
       cursorShape: Qt.PointingHandCursor
       onClicked: function(mouse) {
         if (mouse.button === Qt.RightButton) {
-          if (root.bar) root.bar.run("omarchy-wifi-manager")
-          else Quickshell.execDetached(["omarchy-wifi-manager"])
+          if (root.bar) root.bar.run("omarchy-win11-sound")
+          else Quickshell.execDetached(["omarchy-win11-sound"])
         } else {
           if (root.bar) root.bar.run("omarchy-win11-actioncenter")
           else Quickshell.execDetached(["omarchy-win11-actioncenter"])
         }
       }
       onPressAndHold: {
-        if (root.bar) root.bar.run("omarchy-wifi-manager")
-        else Quickshell.execDetached(["omarchy-wifi-manager"])
+        if (root.bar) root.bar.run("omarchy-win11-wifi")
+        else Quickshell.execDetached(["omarchy-win11-wifi"])
       }
     }
   }

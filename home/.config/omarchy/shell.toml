@@ -1,0 +1,14 @@
+[font]
+base-size = 14
+
+[bar]
+size-horizontal = 50
+scale-with-font = false
+
+background = "#202430"
+# Unused for the bar surface itself — subsect.bar paints a maroon-to-grey
+# gradient at barTintAlpha instead. Still drives the flat hover/drag
+# highlights, which deliberately stay one tone across the gradient.
+background-alpha = 0.86
+text = "#f4f4f4"
+active = "#60cdff"

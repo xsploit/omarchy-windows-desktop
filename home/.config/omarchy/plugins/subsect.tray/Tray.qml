@@ -9,7 +9,7 @@ import "TrayModel.js" as TrayModel
 
 BarWidget {
   id: root
-  moduleName: "subsect.tray"
+  moduleName: "omarchy.tray"
 
   property bool expanded: false
   property bool managePopupOpen: false
@@ -265,7 +265,7 @@ BarWidget {
           width: implicitWidth
           height: implicitHeight
           x: root.drawerExtent - root.revealExtent
-          text: root.expanded ? "\uf054" : "\uf053"
+          text: root.expanded ? "\uf078" : "\uf077"
           onPressed: function(button) {
             if (button === Qt.LeftButton) root.expanded = !root.expanded
             else if (button === Qt.RightButton) root.managePopupOpen = !root.managePopupOpen
@@ -344,7 +344,7 @@ BarWidget {
           width: implicitWidth
           height: implicitHeight
           y: root.drawerExtent - root.revealExtent
-          text: root.expanded ? "\uf054" : "\uf053"
+          text: root.expanded ? "\uf078" : "\uf077"
           textRotation: 90
           onPressed: function(button) {
             if (button === Qt.LeftButton) root.expanded = !root.expanded

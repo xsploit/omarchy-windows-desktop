@@ -72,3 +72,56 @@ hl.config({
 
 -- Soft window corners and shadows matching the Windows-style shell.
 hl.config({ decoration = { rounding = 8, shadow = { enabled = true, range = 18, render_power = 3 } } })
+
+-- Acrylic taskbar: Hyprland blurs whatever shows through the bar's tint.
+-- The tint itself is [bar] background-alpha in ~/.config/omarchy/shell.toml.
+-- Windows stay opaque (see hyprland.lua), so this costs nothing off the bar.
+hl.config({
+  decoration = {
+    blur = {
+      enabled = false,
+      size = 6,
+      passes = 3,
+      noise = 0.02,
+      -- Neutral on purpose. vibrancy boosts the saturation of whatever is
+      -- behind the bar, which turns a warm patch of wallpaper into a maroon
+      -- wash across half the taskbar. Windows 11 acrylic desaturates instead
+      -- and leans on its tint, so these stay at the identity values.
+      contrast = 1.0,
+      brightness = 1.0,
+      vibrancy = 0.0,
+      vibrancy_darkness = 0.0,
+      new_optimizations = true,
+      popups = true,
+    },
+  },
+})
+
+hl.layer_rule({
+  name = "acrylic-bar",
+  match = { namespace = "omarchy-bar" },
+  blur = true,
+  ignore_alpha = 0.1,
+})
+
+-- Windows 11 flyouts share the taskbar's acrylic: blur what shows through the
+-- notification center and the desktop context menu.
+hl.layer_rule({
+  name = "acrylic-flyouts",
+  match = { namespace = "^win11-.*$" },
+  blur = true,
+  ignore_alpha = 0.1,
+})
+
+-- Flyouts rise from the taskbar the way Windows 11's do. The theme sets the
+-- layer animation to a bare "slide", and Hyprland slides a layer surface in
+-- from the edge it is anchored to — a full-screen-anchored flyout (the
+-- notification center, the desktop menu) therefore dropped in from the top.
+-- Pin the direction instead, and dismiss with a quick fade like Windows.
+hl.animation({ leaf = "layersIn",  enabled = true, speed = 5, bezier = "myEase", style = "slide bottom" })
+hl.animation({ leaf = "layersOut", enabled = true, speed = 8, bezier = "myEase", style = "fade" })
+
+-- Per-surface exceptions, matching where each one lives on a Windows desktop.
+hl.layer_rule({ name = "win11-widgets-slide",  match = { namespace = "^win11-widgets$" },       animation = "slide left" })
+hl.layer_rule({ name = "win11-toasts-slide",   match = { namespace = "^omarchy-notifications$" }, animation = "slide right" })
+hl.layer_rule({ name = "win11-context-fade",   match = { namespace = "^win11-desktop-menu$" },  animation = "fade" })

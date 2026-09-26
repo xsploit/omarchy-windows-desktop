@@ -16,13 +16,15 @@ ShellRoot {
       right: true
     }
     margins {
-      bottom: 54
+      bottom: 40
       right: 12
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-sound"
     color: "transparent"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    HyprlandFocusGrab { active: true; windows: [soundWindow]; onCleared: Qt.quit() }
 
     implicitWidth: 360
     implicitHeight: 380
@@ -83,7 +85,7 @@ ShellRoot {
           if (match && match.length >= 3) {
             var id = parseInt(match[1])
             var name = match[2].replace(/\[.*?\]/g, "").trim()
-            var currentList = soundWindow.audioSinks
+            var currentList = soundWindow.audioSinks.slice()
             var exists = false
             for (var i = 0; i < currentList.length; i++) {
               if (currentList[i].id === id) {
@@ -120,9 +122,9 @@ ShellRoot {
 
     Rectangle {
       anchors.fill: parent
-      radius: 14
-      color: soundWindow.isDark ? Qt.rgba(0.12, 0.12, 0.16, 0.96) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
-      border.color: soundWindow.isDark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+      radius: 8
+      color: soundWindow.isDark ? Qt.rgba(0.125, 0.125, 0.125, 0.86) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
+      border.color: soundWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
       border.width: 1
 
       ColumnLayout {
@@ -238,7 +240,15 @@ ShellRoot {
                 value: soundWindow.volumeLevel
                 onMoved: {
                   soundWindow.volumeLevel = value
-                  soundWindow.runCmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + value.toFixed(2))
+                  // A drag fires dozens of moves; spawning wpctl for each one
+                  // stutters the desktop. Send the latest value 40 ms after
+                  // the last move (upstream v5.7.0).
+                  volThrottle.restart()
+                }
+                Timer {
+                  id: volThrottle
+                  interval: 40
+                  onTriggered: Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", soundWindow.volumeLevel.toFixed(2)])
                 }
               }
             }
@@ -271,7 +281,7 @@ ShellRoot {
               implicitHeight: 40
               radius: 6
               color: modelData.isDefault
-                     ? (soundWindow.isDark ? Qt.rgba(0, 120, 212, 0.30) : Qt.rgba(0, 120, 212, 0.15))
+                     ? (soundWindow.isDark ? Qt.rgba(0, 0.47, 0.83, 0.30) : Qt.rgba(0, 0.47, 0.83, 0.15))
                      : (sinkRowM.containsMouse ? (soundWindow.isDark ? Qt.rgba(1, 1, 1, 0.10) : Qt.rgba(0, 0, 0, 0.06)) : "transparent")
               border.color: modelData.isDefault ? (soundWindow.isDark ? "#60cdff" : "#0067c0") : "transparent"
               border.width: 1
@@ -307,7 +317,7 @@ ShellRoot {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  soundWindow.runCmd("wpctl set-default " + modelData.id)
+                  if (/^[0-9]+$/.test(String(modelData.id))) Quickshell.execDetached(["wpctl", "set-default", String(modelData.id)])
                   if (!sinksPoller.running) sinksPoller.running = true
                 }
               }

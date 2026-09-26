@@ -16,8 +16,19 @@ vec3 pqEncode(vec3 x) {
     return pow((3424.0/4096.0 + (2413.0/128.0)*p) /
         (1.0 + (2392.0/128.0)*p), vec3(2523.0/32.0));
 }
+// Soft knee instead of a hard clamp. The old version let pqEncode's
+// clamp(x, 0.0, 1.0) do the limiting, which flattened every boosted highlight
+// to the same peak white and destroyed HDR detail. Below the knee light is
+// untouched, so SDR content and ordinary HDR video are exactly EXPOSURE_GAIN
+// brighter; above it, values compress asymptotically toward 1.0 and keep their
+// ordering. Continuous and monotonic at l == KNEE.
+vec3 softKnee(vec3 l) {
+    const vec3 knee = vec3(0.6);
+    vec3 over = max(l - knee, 0.0);
+    return min(l, knee) + (1.0 - knee) * (over / (over + (1.0 - knee)));
+}
 void main() {
     vec4 c = texture(tex, v_texcoord);
-    if (wl_output == OUTPUT_ID) c.rgb = pqEncode(pqDecode(c.rgb) * EXPOSURE_GAIN);
+    if (wl_output == OUTPUT_ID) c.rgb = pqEncode(softKnee(pqDecode(c.rgb) * EXPOSURE_GAIN));
     fragColor = c;
 }

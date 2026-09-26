@@ -16,14 +16,15 @@ ShellRoot {
     }
     margins {
       left: 12
-      bottom: 54
+      bottom: 40
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-widgets"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: 0
     color: "transparent"
+    HyprlandFocusGrab { active: true; windows: [widgetsWindow]; onCleared: Qt.quit() }
 
     implicitWidth: 520
     implicitHeight: 780
@@ -45,11 +46,11 @@ ShellRoot {
       command: [
         "bash", "-c",
         "wifi=$(nmcli radio wifi 2>/dev/null || echo 'disabled'); " +
-        "bt=$(bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && echo '1' || echo '0'); " +
+        "bt=$(bluetoothctl show 2>/dev/null | grep -c 'Powered: yes'); " +
         "vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print int($2*100)}' || echo '70'); " +
         "bri=$(brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d '%' || echo '80'); " +
         "bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1 || echo '90'); " +
-        "ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2 || echo 'Connected'); " +
+        "ssid=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | grep '^yes:' | cut -d: -f2 || echo 'Connected'); " +
         "echo \"$wifi|$bt|$vol|$bri|$bat|$ssid\""
       ]
       stdout: SplitParser {
@@ -84,9 +85,9 @@ ShellRoot {
     Rectangle {
       id: bg
       anchors.fill: parent
-      radius: 16
-      color: Qt.rgba(0.09, 0.10, 0.13, 0.96)
-      border.color: Qt.rgba(1, 1, 1, 0.14)
+      radius: 8
+      color: Qt.rgba(0.125, 0.125, 0.125, 0.86)
+      border.color: Qt.rgba(1, 1, 1, 0.08)
       border.width: 1
 
       ColumnLayout {
@@ -157,6 +158,7 @@ ShellRoot {
                   Text { text: "󰤨"; font.pixelSize: 15; color: "#ffffff" }
                   Text {
                     text: widgetsWindow.wifiEnabled ? widgetsWindow.wifiSsid : "Wi-Fi Off"
+                    textFormat: Text.PlainText
                     font.family: "Segoe UI"
                     font.pixelSize: 11
                     font.weight: Font.DemiBold
@@ -197,7 +199,7 @@ ShellRoot {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
                     widgetsWindow.btEnabled = !widgetsWindow.btEnabled
-                    widgetsWindow.runCmd("bluetoothctl power " + (widgetsWindow.btEnabled ? "on" : "off"))
+                    widgetsWindow.runCmd("desktop-bluetooth-power " + (widgetsWindow.btEnabled ? "on" : "off"))
                   }
                 }
               }

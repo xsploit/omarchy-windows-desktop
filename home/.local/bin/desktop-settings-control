@@ -1,0 +1,199 @@
+#!/usr/bin/python3
+"""Small, explicit backend for the user's Windows-style Settings window."""
+import fcntl
+import json
+import math
+import os
+from pathlib import Path
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+
+HOME = Path.home()
+FOOT = HOME / '.config/foot/foot.ini'
+STATE = HOME / '.local/state/desktop-settings'
+HDR_STATE = HOME / '.local/share/desktop-integration/hdr-brightness/state.json'
+GSETTINGS = ['gsettings', 'org.gnome.desktop.interface', 'text-scaling-factor']
+
+
+def menu(section):
+    return ['omarchy', 'menu', 'summon', section]
+
+
+ACTIONS = {
+    'computer': ['nautilus', 'computer:///'],
+    'home': ['nautilus', str(HOME)],
+    'downloads': ['nautilus', str(HOME / 'Downloads')],
+    'trash': ['nautilus', 'trash:///'],
+    'disks': ['gnome-disks'],
+    'sound': ['omarchy-win11-sound'],
+    'wifi': ['omarchy-win11-wifi'],
+    'bluetooth': ['omarchy-win11-bluetooth'],
+    'notifications': ['omarchy-win11-notifications'],
+    'network': menu('setup.network'),
+    'defaults': menu('setup.default'),
+    'input': menu('setup.input'),
+    'shortcuts': ['omarchy', 'menu', 'keybindings'],
+    'edit-shortcuts': menu('setup.keybindings'),
+    'display': menu('setup.monitors'),
+    'appearance': menu('style.hyprland'),
+    'theme': menu('style.theme'),
+    'wallpaper': menu('style.background'),
+    'taskbar': menu('style.bar'),
+    'advanced': menu('setup'),
+    'power': ['omarchy-launch-config-editor', str(HOME / '.config/omarchy/shell.json')],
+    'terminal': ['foot'],
+}
+
+
+def run(argv, timeout=15):
+    proc = subprocess.run(argv, text=True, capture_output=True, timeout=timeout)
+    if proc.returncode:
+        raise RuntimeError((proc.stderr or proc.stdout).strip()[-1200:] or f'{argv[0]} exited {proc.returncode}')
+    return proc.stdout.strip()
+
+
+def number(value, low, high):
+    value = float(value)
+    if not math.isfinite(value) or not low <= value <= high:
+        raise ValueError(f'Value must be between {low} and {high}.')
+    return value
+
+
+def font_line(text):
+    """Find only the main font, not a comment, fallback or another section."""
+    section = None
+    offset = 0
+    for line in text.splitlines(keepends=True):
+        stripped = line.strip()
+        if stripped.startswith('[') and stripped.endswith(']'):
+            section = stripped[1:-1]
+        if section == 'main' and re.match(r'^\s*font\s*=', line):
+            return offset, line
+        offset += len(line)
+    raise ValueError('No explicit [main] font in foot.ini; automatic editing is disabled.')
+
+
+def terminal_size(text):
+    _, line = font_line(text)
+    primary = line.split('=', 1)[1].split(',', 1)[0]
+    match = re.search(r':size=([0-9.]+)(?=:|\s|$)', primary)
+    if not match:
+        raise ValueError('The main Foot font has no point size; automatic editing is disabled.')
+    return float(match[1])
+
+
+def replace_terminal_size(text, value):
+    start, line = font_line(text)
+    terminal_size(text)  # Reject unsupported syntax before altering anything.
+    newline = re.sub(r':size=[0-9.]+(?=:|\s|,|$)', f':size={value:g}', line, count=1)
+    return text[:start] + newline + text[start + len(line):]
+
+
+def status():
+    data = {'ok': True, 'warnings': [], 'available': {k: bool(shutil.which(v[0])) for k, v in ACTIONS.items()}}
+    readers = {
+        'textScale': lambda: float(run([GSETTINGS[0], 'get', *GSETTINGS[1:]])),
+        'terminalSize': lambda: terminal_size(FOOT.read_text()),
+        'hdr': lambda: json.loads(HDR_STATE.read_text()),
+        'monitors': lambda: [{'name': m['name'], 'scale': m['scale']} for m in json.loads(run(['hyprctl', '-j', 'monitors']))],
+    }
+    for key, read in readers.items():
+        try:
+            data[key] = read()
+        except (OSError, ValueError, RuntimeError, KeyError, subprocess.SubprocessError) as exc:
+            data[key] = None
+            data['warnings'].append(f'{key}: {exc}')
+    return data
+
+
+def save_terminal(value):
+    before = FOOT.read_text()
+    after = replace_terminal_size(before, value)
+    if before == after:
+        return
+    # Validate the entire prospective config before replacing the user's file.
+    fd, path = tempfile.mkstemp(prefix='.desktop-settings-', suffix='.ini', dir=FOOT.parent)
+    temp = Path(path)
+    try:
+        with os.fdopen(fd, 'w') as stream:
+            stream.write(after)
+            stream.flush()
+            os.fsync(stream.fileno())
+        run(['foot', '--check-config', '--config', path])
+        if FOOT.read_text() != before:
+            raise RuntimeError('foot.ini changed while editing. Refresh Settings and try again.')
+        shutil.copy2(FOOT, STATE / f'foot.ini.before-{time.time_ns()}')
+        os.chmod(temp, FOOT.stat().st_mode & 0o777)
+        os.replace(temp, FOOT)
+    finally:
+        temp.unlink(missing_ok=True)
+
+
+def perform(action, args):
+    if action == 'status' and not args:
+        return status()
+    if action == 'open' and len(args) == 1:
+        key = args[0]
+        if key not in ACTIONS:
+            raise ValueError('Unknown settings destination.')
+        argv = ACTIONS[key]
+        if not shutil.which(argv[0]):
+            raise RuntimeError(f'{argv[0]} is not installed.')
+        STATE.mkdir(parents=True, exist_ok=True)
+        with (STATE / 'launch.log').open('ab') as log:
+            proc = subprocess.Popen(argv, stdin=subprocess.DEVNULL, stdout=log, stderr=log, start_new_session=True)
+            try:
+                code = proc.wait(timeout=0.25)
+            except subprocess.TimeoutExpired:
+                code = None
+            if code not in (None, 0):
+                raise RuntimeError(f'{argv[0]} exited {code}. See {STATE / "launch.log"}.')
+        return {'ok': True, 'message': 'Launch requested.'}
+    if action not in ('text-size', 'terminal-size', 'hdr-level') or len(args) != 1:
+        raise ValueError('Use status, open <destination>, text-size <factor>, terminal-size <points>, or hdr-level <0–100>.')
+    STATE.mkdir(parents=True, exist_ok=True)
+    with (STATE / 'settings.lock').open('a') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if action == 'text-size':
+            value = number(args[0], 0.75, 2.0)
+            previous = run([GSETTINGS[0], 'get', *GSETTINGS[1:]])
+            # Persist recovery information before making a change.
+            (STATE / f'text-scale.before-{time.time_ns()}.json').write_text(json.dumps({'textScale': float(previous)}))
+            run([GSETTINGS[0], 'set', *GSETTINGS[1:], str(value)])
+            actual = float(run([GSETTINGS[0], 'get', *GSETTINGS[1:]]))
+            if abs(actual - value) > 0.00001:
+                raise RuntimeError('The desktop did not accept the requested text size.')
+            message = 'GTK text size saved. Some applications need reopening.'
+        elif action == 'terminal-size':
+            save_terminal(number(args[0], 6, 32))
+            message = 'Terminal font size saved for new Foot windows. Running terminals were left open.'
+        else:
+            value = number(args[0], 0, 100)
+            if value != int(value):
+                raise ValueError('Brightness must be a whole number.')
+            helper = HOME / '.local/bin/hdr-brightness-control'
+            if not os.access(helper, os.X_OK):
+                raise RuntimeError('The HDR brightness helper is unavailable.')
+            run([str(helper), 'set', str(int(value))], timeout=60)
+            message = 'HDR brightness saved through your existing control.'
+    data = status()
+    data['message'] = message
+    return data
+
+
+def main():
+    try:
+        data = perform(sys.argv[1] if len(sys.argv) > 1 else 'status', sys.argv[2:])
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as exc:
+        print(json.dumps({'ok': False, 'error': str(exc)}))
+        return 1
+    print(json.dumps(data))
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

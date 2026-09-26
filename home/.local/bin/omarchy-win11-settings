@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# ==============================================================================
-# Copyright (C) 2026 misternegative21
-# Omarchy Undercover - Windows 11 Settings & PowerToys QuickShell Application
-# License: GPL-3.0-or-later
-# ==============================================================================
-
-DIR="$HOME/.config/quickshell/win11-settings"
-if [[ ! -d "$DIR" ]]; then
-    REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-    if [[ -d "$REPO_DIR/configs/quickshell/win11-settings" ]]; then
-        DIR="$REPO_DIR/configs/quickshell/win11-settings"
-    elif [[ -d "$HOME/.config/omarchy-undercover/quickshell/win11-settings" ]]; then
-        DIR="$HOME/.config/omarchy-undercover/quickshell/win11-settings"
-    fi
+# User-owned launcher for the Windows-style desktop Settings window.
+set -euo pipefail
+section="${1:-display}"
+case "$section" in
+  display|sizing|sound|network|files|personalization|input|advanced) ;;
+  *) printf 'Unknown Settings section: %s\n' "$section" >&2; exit 2 ;;
+esac
+if (( $# > 1 )); then printf 'Usage: omarchy-win11-settings [section]\n' >&2; exit 2; fi
+DIR="$HOME/.config/omarchy-undercover/quickshell/win11-settings"
+if ! command -v quickshell >/dev/null || [[ ! -f "$DIR/shell.qml" ]]; then
+  command -v notify-send >/dev/null && notify-send 'Settings unavailable' 'Quickshell or the Settings configuration is missing.' || true
+  exit 1
 fi
-
-if command -v quickshell >/dev/null 2>&1 && [[ -d "$DIR" ]]; then
-    exec quickshell -p "$DIR"
+if quickshell ipc -p "$DIR" call settings open "$section" >/dev/null 2>&1; then
+  hyprctl dispatch focuswindow 'title:^(Desktop Settings)$' >/dev/null 2>&1 || true
+  exit 0
 fi
-
-exec omarchy-undercover-settings "$@"
+export DESKTOP_SETTINGS_SECTION="$section"
+export QT_QUICK_CONTROLS_STYLE=Fusion
+if ! quickshell -n -p "$DIR"; then
+  command -v notify-send >/dev/null && notify-send 'Settings failed to open' 'Check the Settings launch log for details.' || true
+  exit 1
+fi

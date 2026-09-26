@@ -3,6 +3,7 @@ import QtQuick.Layouts
 import Quickshell
 import Quickshell.Io
 import qs.Ui
+import qs.Commons
 
 BarWidget {
   id: root
@@ -16,6 +17,28 @@ BarWidget {
 
   implicitWidth: clockBox.implicitWidth + 8
   implicitHeight: root.bar ? root.bar.barSize : 48
+
+  // Unread notifications: history files newer than the notification center's
+  // last-opened mark (it touches the mark on open, so the badge clears itself).
+  property int unread: 0
+
+  Process {
+    id: unreadProc
+    command: ["bash", "-c",
+      "d=\"$HOME/.local/state/omarchy/notifications/history\"; s=\"$HOME/.local/state/omarchy/notification-center-seen\"; " +
+      "if [ -f \"$s\" ]; then find \"$d\" -name '*.json' -newer \"$s\" 2>/dev/null | wc -l; else find \"$d\" -name '*.json' 2>/dev/null | wc -l; fi"]
+    stdout: SplitParser {
+      onRead: function(line) { var n = parseInt(line); if (!isNaN(n)) root.unread = n }
+    }
+  }
+
+  Timer {
+    interval: 4000
+    running: true
+    repeat: true
+    triggeredOnStart: true
+    onTriggered: if (!unreadProc.running) unreadProc.running = true
+  }
 
   Timer {
     interval: 1000
@@ -52,7 +75,7 @@ BarWidget {
   Rectangle {
     id: clockBox
     anchors.centerIn: parent
-    implicitWidth: Math.max(Math.round(76 * root.scaleFactor), clockCol.implicitWidth + Math.round(18 * root.scaleFactor))
+    implicitWidth: Math.max(Math.round(76 * root.scaleFactor), clockRow.implicitWidth + Math.round(18 * root.scaleFactor))
     implicitHeight: root.bar ? root.bar.barSize - 8 : 40
     radius: 4
     color: clockMouse.containsMouse
@@ -63,9 +86,13 @@ BarWidget {
                   : "transparent"
     border.width: 1
 
+    RowLayout {
+      id: clockRow
+      anchors.centerIn: parent
+      spacing: 10
+
     ColumnLayout {
       id: clockCol
-      anchors.centerIn: parent
       spacing: 1
 
       Text {
@@ -83,6 +110,44 @@ BarWidget {
         font.family: "Segoe UI, sans-serif"
         font.pixelSize: Math.round(11 * Math.min(1.3, root.scaleFactor))
         color: root.isDark ? Qt.rgba(1, 1, 1, 0.78) : Qt.rgba(0, 0, 0, 0.70)
+      }
+    }
+
+      // Windows 11 notification bell, right of the clock, with an unread badge.
+      Item {
+        Layout.preferredWidth: 18
+        Layout.preferredHeight: 22
+        Layout.alignment: Qt.AlignVCenter
+
+        Text {
+          anchors.centerIn: parent
+          text: root.unread > 0 ? "󰂚" : "󰂜"
+          font.family: Style.font.family
+          font.pixelSize: 15
+          color: root.isDark ? "#ffffff" : "#1a1a1a"
+          opacity: root.unread > 0 ? 1.0 : 0.75
+        }
+
+        Rectangle {
+          visible: root.unread > 0
+          anchors.top: parent.top
+          anchors.right: parent.right
+          anchors.topMargin: -3
+          anchors.rightMargin: -7
+          width: 15; height: 15; radius: 7.5
+          color: "#0078d4"
+          border.width: 1
+          border.color: Qt.rgba(0, 0, 0, 0.35)
+
+          Text {
+            anchors.centerIn: parent
+            text: root.unread > 9 ? "9+" : root.unread
+            font.family: "Segoe UI"
+            font.pixelSize: 9
+            font.bold: true
+            color: "#ffffff"
+          }
+        }
       }
     }
 

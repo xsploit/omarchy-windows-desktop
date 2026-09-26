@@ -24,7 +24,7 @@
     <filter id="explorerShadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="16" stdDeviation="16" flood-color="#000000" flood-opacity="0.38"/>
     </filter>
-
+    
     <filter id="flapShadow" x="-10%" y="-10%" width="120%" height="120%">
       <feDropShadow dx="0" dy="-4" stdDeviation="6" flood-color="#000000" flood-opacity="0.18"/>
     </filter>

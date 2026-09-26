@@ -87,9 +87,9 @@ BarWidget {
       onClicked: function(mouse) {
         if (mouse.button === Qt.RightButton) {
           if (root.bar) {
-            root.bar.run("omarchy-undercover-settings")
+            root.bar.run("omarchy-win11-settings")
           } else {
-            Quickshell.execDetached(["omarchy-undercover-settings"])
+            Quickshell.execDetached(["omarchy-win11-settings"])
           }
         } else {
           if (root.bar) {

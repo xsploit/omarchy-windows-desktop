@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Notification Center — the Windows 11 clock click target.
+#
+# undercover.win11-clock left-clicks this (right-click goes to
+# omarchy-win11-settings). Toggles the subsect.notification-center panel:
+# notification history on top, month calendar underneath, anchored above the
+# taskbar at the bottom-right like Windows.
+
+set -euo pipefail
+
+exec omarchy-shell shell toggle subsect.notification-center

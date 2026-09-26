@@ -40,15 +40,27 @@ def main():
   if not state.get('enabled'):
    state['previous_sdr_brightness']=monitor['sdrBrightness']
   gain=1+level/20
+  # A post-composite shader is the only lever every client obeys. sdrbrightness
+  # is applied inside the colour pipeline and therefore skips any surface that
+  # negotiated its own HDR image description — Chrome and every Electron app do
+  # exactly that, pinning themselves to a 203-nit reference white that Hyprland
+  # advertises and offers no option to change. Scaling them with sdrbrightness
+  # is impossible, so they end up far dimmer than native SDR windows. The shader
+  # runs after compositing, so one gain moves every window together.
+  # The old clipping problem is handled in the shader itself (see softKnee in
+  # brightness.frag.in), not by avoiding the shader.
   shader=(ROOT/'brightness.frag.in').read_text().replace('OUTPUT_ID',str(monitor['id'])).replace('EXPOSURE_GAIN',f'{gain:.4f}')
   candidate=ROOT/'candidate.frag';candidate.write_text(shader)
   run(['glslangValidator','-S','frag',str(candidate)])
   atomic(SHADER,shader)
-  # Avoid stacking the previous encoded-PQ brightness adjustment with exposure.
+  # sdrbrightness stays 1.0 so the shader is the single source of gain. With
+  # sdr_max_luminance at 203 in monitors.lua, native SDR windows land on the
+  # same 203-nit white Chrome pins itself to, so the shader then scales both
+  # to exactly the same place.
   text=(CONFIG/'monitors.lua').read_text()
   text=re.sub(r'sdrbrightness\s*=\s*[\d.]+','sdrbrightness = 1.0',text,count=1)
   atomic(CONFIG/'monitors.lua',text)
-  atomic(MODULE,'-- Software HDR output exposure, controlled by HDR Brightness.\n'
+  atomic(MODULE,'-- Uniform HDR output exposure, controlled by HDR Brightness.\n'
      'hl.config({decoration={screen_shader="'+str(SHADER)+'"}})\n')
   state.update(level=level,enabled=True,gain=gain)
  else:raise ValueError('Expected status, set, restore, or refresh')

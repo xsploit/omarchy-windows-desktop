@@ -28,7 +28,7 @@ Item {
         MouseArea { anchors.fill: parent; acceptedButtons: Qt.LeftButton | Qt.RightButton; onClicked: root.opened = false }
         Rectangle {
             x: Math.max(8, Math.min(parent.width - width - 8, root.anchorX - width/2))
-            anchors.bottom: parent.bottom; anchors.bottomMargin: 62
+            anchors.bottom: parent.bottom; anchors.bottomMargin: 44
             width: 274; height: content.height + 20
             radius: 8; color: "#252b39"; border.color: "#515967"
             MouseArea { anchors.fill: parent; onClicked: {} }

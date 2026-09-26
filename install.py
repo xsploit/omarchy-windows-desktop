@@ -32,7 +32,7 @@ def main():
     p.add_argument('--apply',action='store_true',help='Write files with a dated rollback backup')
     p.add_argument('--home',type=pathlib.Path,default=pathlib.Path.home(),help='Target home (also useful for staging tests)')
     p.add_argument('--build-native',action='store_true',help='Build matching Hyprland plugins before installing')
-    p.add_argument('--with-lg-hdr',action='store_true',help='Opt into HDMI-A-1 3840x2160@60 scale 2 HDR; LG profile only')
+    p.add_argument('--with-lg-hdr',action='store_true',help='Opt into HDMI-A-1 3840x2160@60 scale 1.75 HDR; LG profile only')
     p.add_argument('--activate',action='store_true',help='Reload the current desktop after installing; requires --apply')
     a=p.parse_args();home=a.home.resolve()
     if not re.fullmatch(r'/[A-Za-z0-9_./-]+',str(home)):

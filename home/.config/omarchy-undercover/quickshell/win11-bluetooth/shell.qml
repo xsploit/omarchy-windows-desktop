@@ -16,13 +16,15 @@ ShellRoot {
       right: true
     }
     margins {
-      bottom: 54
+      bottom: 40
       right: 12
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-bluetooth"
     color: "transparent"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    HyprlandFocusGrab { active: true; windows: [btWindow]; onCleared: Qt.quit() }
 
     implicitWidth: 360
     implicitHeight: 480
@@ -88,7 +90,7 @@ ShellRoot {
           if (parts.length >= 3 && parts[0] === "Device") {
             var mac = parts[1]
             var name = parts.slice(2).join(" ")
-            var currentList = btWindow.pairedDevices
+            var currentList = btWindow.pairedDevices.slice()
             var exists = false
             for (var i = 0; i < currentList.length; i++) {
               if (currentList[i].mac === mac) {
@@ -134,9 +136,9 @@ ShellRoot {
     Rectangle {
       id: card
       anchors.fill: parent
-      radius: 14
-      color: btWindow.isDark ? Qt.rgba(0.12, 0.12, 0.16, 0.96) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
-      border.color: btWindow.isDark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+      radius: 8
+      color: btWindow.isDark ? Qt.rgba(0.125, 0.125, 0.125, 0.86) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
+      border.color: btWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
       border.width: 1
 
       ColumnLayout {
@@ -250,7 +252,7 @@ ShellRoot {
                 onClicked: {
                   var target = !btWindow.btEnabled
                   btWindow.btEnabled = target
-                  btWindow.runCmd("bluetoothctl power " + (target ? "on" : "off"))
+                  btWindow.runCmd("desktop-bluetooth-power " + (target ? "on" : "off"))
                   btWindow.triggerQuery()
                 }
               }
@@ -367,6 +369,7 @@ ShellRoot {
                   Layout.fillWidth: true
                   Text {
                     text: modelData.name
+                    textFormat: Text.PlainText
                     font.family: "Segoe UI"
                     font.pixelSize: 12
                     font.weight: Font.DemiBold
@@ -402,7 +405,7 @@ ShellRoot {
                     hoverEnabled: true
                     cursorShape: Qt.PointingHandCursor
                     onClicked: {
-                      btWindow.runCmd("bluetoothctl connect " + modelData.mac)
+                      if (/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(modelData.mac)) Quickshell.execDetached(["bluetoothctl", "connect", modelData.mac])
                       btWindow.triggerQuery()
                     }
                   }
@@ -416,7 +419,7 @@ ShellRoot {
                 cursorShape: Qt.PointingHandCursor
                 acceptedButtons: Qt.RightButton
                 onClicked: {
-                  btWindow.runCmd("bluetoothctl disconnect " + modelData.mac)
+                  if (/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/i.test(modelData.mac)) Quickshell.execDetached(["bluetoothctl", "disconnect", modelData.mac])
                 }
               }
             }

@@ -27,16 +27,17 @@ BarWidget {
       spacing: 6
 
       Text {
-        text: "🔍"
-        font.pixelSize: 11
+        text: ""
+        font.family: root.bar && root.bar.fontFamily !== undefined ? root.bar.fontFamily : "monospace"
+        font.pixelSize: 12
         color: root.bar && root.bar.foreground !== undefined ? root.bar.foreground : "#ffffff"
         opacity: 0.7
       }
 
       Text {
         text: "Search"
-        font.family: root.bar && root.bar.fontFamily !== undefined ? root.bar.fontFamily : "sans-serif"
-        font.pixelSize: 11
+        font.family: "Segoe UI"
+        font.pixelSize: 12
         color: root.bar && root.bar.foreground !== undefined ? root.bar.foreground : "#ffffff"
         opacity: 0.6
         Layout.fillWidth: true
@@ -50,9 +51,9 @@ BarWidget {
       cursorShape: Qt.IBeamCursor
       onClicked: {
         if (root.bar) {
-          root.bar.run("omarchy-undercover-launcher")
+          root.bar.run("omarchy menu")
         } else {
-          Quickshell.execDetached(["omarchy-undercover-launcher"])
+          Quickshell.execDetached(["omarchy", "menu"])
         }
       }
     }

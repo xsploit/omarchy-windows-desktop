@@ -1,5 +1,4 @@
 #include <QApplication>
-#include <QDir>
 #include <QWidget>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -22,7 +21,7 @@ int main(int argc,char**argv){
  auto status=new QLabel;status->setWordWrap(true);l->addWidget(status);
  auto row=new QHBoxLayout;l->addLayout(row);auto restore=new QPushButton("Restore previous");auto max=new QPushButton("Maximum boost");row->addWidget(restore);row->addWidget(max);
  auto update=[&](int n){value->setText(QString("Brightness boost: %1 / 100").arg(n));};
- auto call=[&](QStringList args){QProcess p;p.start(QDir::homePath()+"/.local/bin/hdr-brightness-control",args);if(!p.waitForFinished(20000)||p.exitCode()!=0){status->setText("Could not apply: "+QString::fromUtf8(p.readAllStandardError()));return;}auto obj=QJsonDocument::fromJson(p.readAllStandardOutput()).object();slider->setValue(obj["level"].toInt());update(slider->value());status->setText(obj["enabled"].toBool()?"Applied · HDR stays enabled":"Previous brightness restored");};
+ auto call=[&](QStringList args){QProcess p;p.start("@HOME@/.local/bin/hdr-brightness-control",args);if(!p.waitForFinished(20000)||p.exitCode()!=0){status->setText("Could not apply: "+QString::fromUtf8(p.readAllStandardError()));return;}auto obj=QJsonDocument::fromJson(p.readAllStandardOutput()).object();slider->setValue(obj["level"].toInt());update(slider->value());status->setText(obj["enabled"].toBool()?"Applied · HDR stays enabled":"Previous brightness restored");};
  QTimer timer;timer.setSingleShot(true);timer.setInterval(350);
  QObject::connect(slider,&QSlider::valueChanged,[&](int n){update(n);if(!slider->isSliderDown())timer.start();});
  QObject::connect(slider,&QSlider::sliderReleased,[&](){timer.start();});

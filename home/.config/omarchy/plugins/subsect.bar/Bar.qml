@@ -7,6 +7,7 @@ import QtQuick.Layouts
 import qs.Commons
 import qs.Ui
 import "BarModel.js" as BarModel
+import "../undercover.win11-taskbar" as Win11
 
 Item {
   id: root
@@ -80,6 +81,21 @@ Item {
   property bool foregroundAnimationEnabled: true
   property color background: Color.bar.background
   property color urgent: Color.bar.active
+
+  // Windows 11 acrylic taskbar: a warm maroon at the start edge washing out to
+  // neutral grey across the bar, painted at partial alpha over the Hyprland
+  // blur (layer rule "acrylic-bar" in hypr/looknfeel.lua). This replaces the
+  // flat Color.bar.background fill on the surface itself; the hover and drag
+  // highlights further down still use the flat token deliberately, so they
+  // read as one tone wherever they land on the gradient.
+  property real barTintAlpha: 0.92
+  property color barTintStart: "#4a2a2e"
+  property color barTintMid: "#332a2c"
+  property color barTintEnd: "#262628"
+
+  function barTint(base) {
+    return Qt.rgba(base.r, base.g, base.b, root.barTintAlpha)
+  }
 
   Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
   Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
@@ -1283,10 +1299,80 @@ Item {
 
     implicitWidth: root.vertical ? root.barSize : 0
     implicitHeight: root.vertical ? 0 : root.barSize
-    color: root.transparent ? "transparent" : root.background
+    // Always transparent at the surface level: barTint below paints the fill,
+    // so a gradient reaches the compositor instead of one flat colour.
+    color: "transparent"
     surfaceFormat.opaque: false
     WlrLayershell.namespace: "omarchy-bar"
     WlrLayershell.layer: WlrLayer.Top
+
+    // Declared before the Loader so it stacks underneath every widget.
+    Rectangle {
+      anchors.fill: parent
+      visible: !root.transparent
+      gradient: Gradient {
+        // Vertical bars run the same maroon-to-grey ramp top to bottom.
+        orientation: root.vertical ? Gradient.Vertical : Gradient.Horizontal
+        GradientStop { position: 0.0; color: root.barTint(root.barTintStart) }
+        GradientStop { position: 0.35; color: root.barTint(root.barTintMid) }
+        GradientStop { position: 1.0; color: root.barTint(root.barTintEnd) }
+      }
+    }
+
+    // Fluent edge lighting. Windows' taskbar is not a flat tint: its
+    // desktop-facing edge carries a 1px light stroke, a faint sheen fades in
+    // from that edge, and the screen-edge side falls off slightly darker.
+    // Together they lift the bar off the wallpaper instead of laying it flat.
+    // "Desktop-facing" is the top for a bottom bar, and so on.
+    readonly property bool desktopEdgeFirst: root.position === "bottom" || root.position === "right"
+    readonly property color edgeSheen: Qt.rgba(1, 1, 1, 0.06)
+    readonly property color edgeShade: Qt.rgba(0, 0, 0, 0.12)
+
+    Rectangle {
+      visible: !root.transparent
+      anchors.fill: parent
+      gradient: Gradient {
+        orientation: root.vertical ? Gradient.Horizontal : Gradient.Vertical
+        GradientStop { position: 0.0;  color: barWindow.desktopEdgeFirst ? barWindow.edgeSheen : barWindow.edgeShade }
+        GradientStop { position: 0.45; color: Qt.rgba(1, 1, 1, 0.0) }
+        GradientStop { position: 1.0;  color: barWindow.desktopEdgeFirst ? barWindow.edgeShade : barWindow.edgeSheen }
+      }
+    }
+
+    Rectangle {
+      visible: !root.transparent
+      color: Qt.rgba(1, 1, 1, 0.10)
+      width: root.vertical ? 1 : parent.width
+      height: root.vertical ? parent.height : 1
+      anchors.top: root.position === "bottom" ? parent.top : undefined
+      anchors.bottom: root.position === "top" ? parent.bottom : undefined
+      anchors.left: root.position === "right" ? parent.left : undefined
+      anchors.right: root.position === "left" ? parent.right : undefined
+    }
+
+    // Windows' taskbar right-click menu. Sits under the widget Loader, so it
+    // only receives right-clicks that land on empty bar space.
+    Win11.ContextMenu {
+      id: barMenu
+      entries: [
+        { label: "Task Manager",     glyph: "󰨇", cmd: [Quickshell.env("HOME") + "/.local/bin/tmog-task-manager"] },
+        { sep: true },
+        { label: "Show the desktop", glyph: "󰇅", cmd: [Quickshell.env("HOME") + "/.local/bin/desktop-windows", "show-desktop"] },
+        { label: "Notification center", glyph: "󰂚", cmd: ["omarchy-win11-notifications"] },
+        { sep: true },
+        { label: "Taskbar settings", glyph: "󰒓", cmd: ["omarchy-win11-settings", "personalization"] }
+      ]
+    }
+
+    MouseArea {
+      anchors.fill: parent
+      acceptedButtons: Qt.RightButton
+      onClicked: function(mouse) {
+        // The bar spans the screen edge, so bar x is screen x. Lift the menu
+        // clear of the bar's top stroke.
+        barMenu.openAbove(mouse.x - 8, root.barSize + 2)
+      }
+    }
 
     Loader {
       anchors.fill: parent

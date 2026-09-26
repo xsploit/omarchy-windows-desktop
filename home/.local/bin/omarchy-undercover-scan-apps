@@ -87,7 +87,7 @@ def scan_apps():
                 if name and exec_cmd and not nodisplay and name.lower() not in seen:
                     clean_exec = " ".join([arg for arg in exec_cmd.split() if not arg.startswith("%")])
                     seen.add(name.lower())
-
+                    
                     cat = name[0].upper()
                     if not cat.isalpha():
                         cat = "#"

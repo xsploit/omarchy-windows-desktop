@@ -5,6 +5,7 @@ import Quickshell.Wayland
 Item {
     id: root
     function open(cmd) { Quickshell.execDetached(cmd) }
+    ContextMenu { id: desktopMenu }
     PanelWindow {
         anchors { top: true; bottom: true; left: true; right: true }
         color: "transparent"
@@ -12,13 +13,23 @@ Item {
         WlrLayershell.namespace: "windows-desktop-icons"
         WlrLayershell.layer: WlrLayer.Bottom
         WlrLayershell.keyboardFocus: WlrKeyboardFocus.None
-        Image { anchors.fill: parent; source: "file://@HOME@/.config/omarchy-undercover/wallpapers/desktop.svg"; fillMode: Image.PreserveAspectCrop }
+        // Preferred wallpaper is a local file that is not redistributed; fall back
+        // to the packaged SVG on machines that do not have it.
+        Image {
+            anchors.fill: parent
+            fillMode: Image.PreserveAspectCrop
+            source: "file://@HOME@/.config/omarchy-undercover/wallpapers/win11_bloom_dark.jpg"
+            onStatusChanged: if (status === Image.Error) source = "file://@HOME@/.config/omarchy-undercover/wallpapers/desktop.svg"
+        }
+        // Right-click on bare wallpaper opens the Windows desktop menu. Declared
+        // before the icon column so icons stay on top and keep their own clicks.
+        MouseArea { anchors.fill: parent; acceptedButtons: Qt.RightButton; onClicked: function(mouse) { desktopMenu.openAt(mouse.x, mouse.y) } }
         Column {
             x: 12; y: 12; spacing: 12
             Repeater {
                 model: [
                     {name:"Recycle Bin",icon:"user-trash",cmd:["nautilus","trash:///"]},
-                    {name:"This PC",icon:"computer",cmd:["nautilus","@HOME@"]},
+                    {name:"This PC",icon:"computer",cmd:["nautilus","computer:///"]},
                     {name:"Google Chrome",icon:"google-chrome",cmd:["omarchy","launch","browser"]},
                     {name:"Discord",icon:"discord",cmd:["gtk-launch","discord"]},
                     {name:"Files",custom:"icons/files.svg",cmd:["nautilus"]},

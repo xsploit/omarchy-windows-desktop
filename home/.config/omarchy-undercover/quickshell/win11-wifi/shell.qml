@@ -16,13 +16,15 @@ ShellRoot {
       right: true
     }
     margins {
-      bottom: 54
+      bottom: 40
       right: 12
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-wifi"
     color: "transparent"
+    WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
+    HyprlandFocusGrab { active: true; windows: [wifiWindow]; onCleared: Qt.quit() }
 
     implicitWidth: 360
     implicitHeight: 480
@@ -57,6 +59,31 @@ ShellRoot {
 
     function runCmd(cmd) {
       Quickshell.execDetached(["bash", "-c", cmd])
+    }
+
+    // Scan-derived SSIDs and typed passwords never touch a shell string or
+    // argv: the SSID is its own argument, and the password goes to nmcli on
+    // stdin via --ask (argv is readable by every process on the machine).
+    Process {
+      id: wifiConnectProc
+      property string secret: ""
+      stdinEnabled: true
+      onStarted: {
+        if (secret.length > 0) write(secret + "\n")
+        secret = ""
+        // EOF, so a rejected password fails instead of waiting for a retry.
+        stdinEnabled = false
+      }
+      onExited: { stdinEnabled = true; wifiWindow.triggerScan() }
+    }
+
+    function connectWifi(ssid, password) {
+      if (typeof ssid !== "string" || ssid.length === 0 || ssid.length > 32 || /[\x00-\x1f]/.test(ssid)) return
+      if (wifiConnectProc.running) return
+      wifiConnectProc.secret = typeof password === "string" ? password : ""
+      wifiConnectProc.command = ["nmcli", "--ask", "device", "wifi", "connect", ssid]
+      wifiConnectProc.running = true
+      wifiWindow.passwordInput = ""
     }
 
     // Theme state poller
@@ -101,7 +128,7 @@ ShellRoot {
             if (ssid && ssid.length > 0) {
               if (inUse) wifiWindow.activeSsid = ssid
               var exists = false
-              var currentList = wifiWindow.networks
+              var currentList = wifiWindow.networks.slice()
               for (var i = 0; i < currentList.length; i++) {
                 if (currentList[i].ssid === ssid) {
                   currentList[i].signal = signal
@@ -150,9 +177,9 @@ ShellRoot {
     Rectangle {
       id: card
       anchors.fill: parent
-      radius: 14
-      color: wifiWindow.isDark ? Qt.rgba(0.12, 0.12, 0.16, 0.96) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
-      border.color: wifiWindow.isDark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+      radius: 8
+      color: wifiWindow.isDark ? Qt.rgba(0.125, 0.125, 0.125, 0.86) : Qt.rgba(0.97, 0.97, 0.98, 0.98)
+      border.color: wifiWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
       border.width: 1
 
       ColumnLayout {
@@ -333,7 +360,7 @@ ShellRoot {
           Layout.fillWidth: true
           implicitHeight: 52
           radius: 8
-          color: wifiWindow.isDark ? Qt.rgba(0, 120, 212, 0.25) : Qt.rgba(0, 120, 212, 0.12)
+          color: wifiWindow.isDark ? Qt.rgba(0, 0.47, 0.83, 0.25) : Qt.rgba(0, 0.47, 0.83, 0.12)
           border.color: wifiWindow.isDark ? "#60cdff" : "#0067c0"
           border.width: 1
 
@@ -350,6 +377,7 @@ ShellRoot {
               Layout.fillWidth: true
               Text {
                 text: wifiWindow.activeSsid
+                textFormat: Text.PlainText
                 font.family: "Segoe UI"
                 font.pixelSize: 12
                 font.weight: Font.DemiBold
@@ -368,13 +396,13 @@ ShellRoot {
               implicitWidth: 80
               implicitHeight: 26
               radius: 6
-              color: disMouse.containsMouse ? Qt.rgba(1, 0.2, 0.2, 0.3) : Qt.rgba(1, 0.2, 0.2, 0.15)
+              color: disMouse.containsMouse ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(1, 1, 1, 0.08)
               Text {
                 anchors.centerIn: parent
                 text: "Disconnect"
                 font.family: "Segoe UI"
                 font.pixelSize: 10
-                color: "#ff5f56"
+                color: "#ffffff"
               }
               MouseArea {
                 id: disMouse
@@ -382,7 +410,7 @@ ShellRoot {
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  wifiWindow.runCmd("nmcli con down id '" + wifiWindow.activeSsid + "' || nmcli dev disconnect wlan0")
+                  Quickshell.execDetached(["bash", "-c", 'nmcli connection down id "$1" || nmcli device disconnect wlan0', "--", wifiWindow.activeSsid])
                   wifiWindow.activeSsid = ""
                   wifiWindow.triggerScan()
                 }
@@ -449,6 +477,7 @@ ShellRoot {
 
                   Text {
                     text: modelData.ssid
+                    textFormat: Text.PlainText
                     font.family: "Segoe UI"
                     font.pixelSize: 12
                     font.weight: modelData.inUse ? Font.DemiBold : Font.Normal
@@ -475,7 +504,7 @@ ShellRoot {
                       wifiWindow.connectingSsid = (wifiWindow.connectingSsid === modelData.ssid ? "" : modelData.ssid)
                       wifiWindow.passwordInput = ""
                     } else {
-                      wifiWindow.runCmd("nmcli dev wifi connect '" + modelData.ssid + "'")
+                      wifiWindow.connectWifi(modelData.ssid, "")
                       wifiWindow.triggerScan()
                     }
                   }
@@ -518,7 +547,8 @@ ShellRoot {
                         selectByMouse: true
                         onTextChanged: wifiWindow.passwordInput = text
                         onAccepted: {
-                          wifiWindow.runCmd("nmcli dev wifi connect '" + modelData.ssid + "' password '" + pwInput.text + "'")
+                          wifiWindow.connectWifi(modelData.ssid, pwInput.text)
+                          pwInput.text = ""
                           wifiWindow.connectingSsid = ""
                           wifiWindow.triggerScan()
                         }
@@ -535,7 +565,8 @@ ShellRoot {
                         anchors.fill: parent
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                          wifiWindow.runCmd("nmcli dev wifi connect '" + modelData.ssid + "' password '" + pwInput.text + "'")
+                          wifiWindow.connectWifi(modelData.ssid, pwInput.text)
+                          pwInput.text = ""
                           wifiWindow.connectingSsid = ""
                           wifiWindow.triggerScan()
                         }

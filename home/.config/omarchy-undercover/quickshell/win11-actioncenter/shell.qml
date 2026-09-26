@@ -16,15 +16,16 @@ ShellRoot {
       right: true
     }
     margins {
-      bottom: 52
+      bottom: 40
       right: 12
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-actioncenter"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: 0
     color: "transparent"
+    HyprlandFocusGrab { active: true; windows: [actionCenterWindow]; onCleared: Qt.quit() }
 
     implicitWidth: 380
     implicitHeight: 460
@@ -39,9 +40,9 @@ ShellRoot {
     property bool batterySaverEnabled: false
     property int volumeVal: 70
     property int brightnessVal: 80
-    property int batteryPct: 90
+    property int batteryPct: -1
     property bool isCharging: false
-    property string wifiSsid: "Connected"
+    property string wifiSsid: ""
     property string btDevice: "Connected"
 
     Shortcut {
@@ -51,6 +52,22 @@ ShellRoot {
 
     function runCmd(cmd) {
       Quickshell.execDetached(["bash", "-c", cmd])
+    }
+
+    // Opening an app from here must close this overlay first; otherwise the
+    // flyout stays layered over the window it just opened (upstream v5.7.1).
+    function launchApp(argv) {
+      actionCenterWindow.visible = false
+      Quickshell.execDetached(argv)
+      Qt.quit()
+    }
+
+    // Dragging the volume bar fires a move per pixel; send only the latest
+    // value, 40 ms after movement stops, instead of a process per move.
+    Timer {
+      id: volThrottle
+      interval: 40
+      onTriggered: Quickshell.execDetached(["wpctl", "set-volume", "@DEFAULT_AUDIO_SINK@", (actionCenterWindow.volumeVal / 100.0).toFixed(2)])
     }
 
     // Reactive Theme Poller
@@ -75,12 +92,12 @@ ShellRoot {
       command: [
         "bash", "-c",
         "wifi=$(nmcli radio wifi 2>/dev/null || echo 'disabled'); " +
-        "bt=$(bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && echo '1' || echo '0'); " +
+        "bt=$(bluetoothctl show 2>/dev/null | grep -c 'Powered: yes'); " +
         "vol=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{print int($2*100)}' || echo '70'); " +
         "bri=$(brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d '%' || echo '80'); " +
-        "bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1 || echo '90'); " +
+        "bat=$(cat /sys/class/power_supply/BAT*/capacity 2>/dev/null | head -1); " +
         "chg=$(cat /sys/class/power_supply/BAT*/status 2>/dev/null | head -1 || echo 'Discharging'); " +
-        "ssid=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | grep '^yes:' | cut -d: -f2 || echo 'Connected'); " +
+        "ssid=$(nmcli -t -f active,ssid dev wifi list --rescan no 2>/dev/null | grep '^yes:' | cut -d: -f2 || echo 'Connected'); " +
         "echo \"$wifi|$bt|$vol|$bri|$bat|$chg|$ssid\""
       ]
       stdout: SplitParser {
@@ -92,7 +109,7 @@ ShellRoot {
             actionCenterWindow.btEnabled = (p[1] === "1")
             var v = parseInt(p[2]); if (!isNaN(v)) actionCenterWindow.volumeVal = Math.max(0, Math.min(100, v))
             var b = parseInt(p[3]); if (!isNaN(b)) actionCenterWindow.brightnessVal = Math.max(5, Math.min(100, b))
-            var bt = parseInt(p[4]); if (!isNaN(bt)) actionCenterWindow.batteryPct = Math.max(1, Math.min(100, bt))
+            var bt = parseInt(p[4]); actionCenterWindow.batteryPct = isNaN(bt) ? -1 : Math.max(1, Math.min(100, bt))
             actionCenterWindow.isCharging = (p[5].toLowerCase().indexOf("charg") !== -1)
             if (p[6]) actionCenterWindow.wifiSsid = p[6]
           }
@@ -114,9 +131,9 @@ ShellRoot {
     Rectangle {
       id: bg
       anchors.fill: parent
-      radius: 12
-      color: actionCenterWindow.isDark ? Qt.rgba(0.12, 0.13, 0.17, 0.94) : Qt.rgba(0.97, 0.97, 0.98, 0.94)
-      border.color: actionCenterWindow.isDark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+      radius: 8
+      color: actionCenterWindow.isDark ? Qt.rgba(0.125, 0.125, 0.125, 0.86) : Qt.rgba(0.97, 0.97, 0.98, 0.94)
+      border.color: actionCenterWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
       border.width: 1
 
       ColumnLayout {
@@ -154,7 +171,7 @@ ShellRoot {
                 Layout.fillWidth: true
                 spacing: 0
                 Text { text: "Wi-Fi"; font.family: "Segoe UI"; font.pixelSize: 11; font.bold: true; color: "#ffffff" }
-                Text { text: actionCenterWindow.wifiEnabled ? actionCenterWindow.wifiSsid : "Disconnected"; font.family: "Segoe UI"; font.pixelSize: 9; color: Qt.rgba(1,1,1,0.7); elide: Text.ElideRight; Layout.fillWidth: true }
+                Text { textFormat: Text.PlainText; text: actionCenterWindow.wifiEnabled ? actionCenterWindow.wifiSsid : "Disconnected"; font.family: "Segoe UI"; font.pixelSize: 9; color: Qt.rgba(1,1,1,0.7); elide: Text.ElideRight; Layout.fillWidth: true }
               }
 
               Text {
@@ -164,13 +181,25 @@ ShellRoot {
               }
             }
 
+            // The › chevron opens the full list, like Windows; the rest of the
+            // tile toggles the radio. Two areas so the chevron wins its strip.
+            MouseArea {
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              anchors.right: parent.right
+              width: 44
+              cursorShape: Qt.PointingHandCursor
+              onClicked: { actionCenterWindow.runCmd("omarchy-win11-wifi"); Qt.quit() }
+            }
+
             MouseArea {
               anchors.fill: parent
+              anchors.rightMargin: 44
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton | Qt.RightButton
               onClicked: function(mouse) {
                 if (mouse.button === Qt.RightButton) {
-                  actionCenterWindow.runCmd("omarchy-wifi-manager")
+                  actionCenterWindow.runCmd("omarchy-win11-wifi"); Qt.quit()
                 } else {
                   actionCenterWindow.wifiEnabled = !actionCenterWindow.wifiEnabled
                   actionCenterWindow.runCmd("nmcli radio wifi " + (actionCenterWindow.wifiEnabled ? "on" : "off"))
@@ -204,16 +233,28 @@ ShellRoot {
               Text { text: "›"; font.pixelSize: 14; color: Qt.rgba(1,1,1,0.6) }
             }
 
+            // The › chevron opens the full list, like Windows; the rest of the
+            // tile toggles the radio. Two areas so the chevron wins its strip.
+            MouseArea {
+              anchors.top: parent.top
+              anchors.bottom: parent.bottom
+              anchors.right: parent.right
+              width: 44
+              cursorShape: Qt.PointingHandCursor
+              onClicked: { actionCenterWindow.runCmd("omarchy-win11-bluetooth"); Qt.quit() }
+            }
+
             MouseArea {
               anchors.fill: parent
+              anchors.rightMargin: 44
               cursorShape: Qt.PointingHandCursor
               acceptedButtons: Qt.LeftButton | Qt.RightButton
               onClicked: function(mouse) {
                 if (mouse.button === Qt.RightButton) {
-                  actionCenterWindow.runCmd("omarchy-bluetooth-manager")
+                  actionCenterWindow.runCmd("omarchy-win11-bluetooth"); Qt.quit()
                 } else {
                   actionCenterWindow.btEnabled = !actionCenterWindow.btEnabled
-                  actionCenterWindow.runCmd("bluetoothctl power " + (actionCenterWindow.btEnabled ? "on" : "off"))
+                  actionCenterWindow.runCmd("desktop-bluetooth-power " + (actionCenterWindow.btEnabled ? "on" : "off"))
                 }
               }
             }
@@ -336,7 +377,7 @@ ShellRoot {
             MouseArea {
               anchors.fill: parent
               cursorShape: Qt.PointingHandCursor
-              onClicked: actionCenterWindow.runCmd("omarchy-undercover-settings")
+              onClicked: actionCenterWindow.launchApp(["omarchy-win11-settings", "sizing"])
             }
           }
         }
@@ -346,7 +387,7 @@ ShellRoot {
           Layout.fillWidth: true
           height: 40
           radius: 6
-          color: actionCenterWindow.isDark ? "#353e52" : "#e4e8ef"
+          color: actionCenterWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : "#e4e8ef"
           Text {
             anchors.centerIn: parent
             text: "HDR Brightness…"
@@ -391,17 +432,31 @@ ShellRoot {
               onPositionChanged: function(mouse) {
                 var p = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
                 actionCenterWindow.volumeVal = p
-                actionCenterWindow.runCmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + (p / 100.0) + " >/dev/null 2>&1")
+                volThrottle.restart()
               }
               onClicked: function(mouse) {
                 var p = Math.max(0, Math.min(100, Math.round((mouse.x / width) * 100)))
                 actionCenterWindow.volumeVal = p
-                actionCenterWindow.runCmd("wpctl set-volume @DEFAULT_AUDIO_SINK@ " + (p / 100.0) + " >/dev/null 2>&1")
+                volThrottle.restart()
               }
             }
           }
 
           Text { text: actionCenterWindow.volumeVal + "%"; font.family: "Segoe UI"; font.pixelSize: 10; color: Qt.rgba(1,1,1,0.7) }
+
+          // Output-device picker, the › Windows puts beside its volume slider.
+          Rectangle {
+            width: 24; height: 24; radius: 4
+            color: sndChevMouse.containsMouse ? Qt.rgba(1,1,1,0.10) : "transparent"
+            Text { anchors.centerIn: parent; text: "›"; font.pixelSize: 16; color: Qt.rgba(1,1,1,0.75) }
+            MouseArea {
+              id: sndChevMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: { actionCenterWindow.runCmd("omarchy-win11-sound"); Qt.quit() }
+            }
+          }
         }
 
         // 4. Footer Bar with Battery & Settings Gear
@@ -419,12 +474,12 @@ ShellRoot {
             RowLayout {
               spacing: 6
               Text {
-                text: actionCenterWindow.isCharging ? "󰂄" : "󰁹"
+                text: actionCenterWindow.batteryPct < 0 ? "󰇅" : (actionCenterWindow.isCharging ? "󰂄" : "󰁹")
                 font.pixelSize: 15
                 color: actionCenterWindow.isDark ? "#ffffff" : "#1a1a1a"
               }
               Text {
-                text: actionCenterWindow.batteryPct + "%"
+                text: actionCenterWindow.batteryPct < 0 ? "Desktop" : actionCenterWindow.batteryPct + "%"
                 font.family: "Segoe UI"
                 font.pixelSize: 11
                 font.bold: true
@@ -442,8 +497,7 @@ ShellRoot {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
                 onClicked: {
-                  Qt.quit()
-                  actionCenterWindow.runCmd("omarchy-undercover-settings")
+                  actionCenterWindow.launchApp(["omarchy-win11-settings"])
                 }
               }
             }

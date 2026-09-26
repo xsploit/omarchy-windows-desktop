@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "id": "subsect.notification-center",
+  "name": "Notification Center",
+  "version": "1.0.0",
+  "author": "subsect",
+  "description": "Windows 11 style flyout: notification history on top, month calendar underneath. Opened from the taskbar clock.",
+  "kinds": ["panel"],
+  "entryPoints": {
+    "panel": "Panel.qml"
+  }
+}

@@ -16,7 +16,12 @@ This is the source snapshot of a working personal setup, shared so it can be bac
 - Windows-like keyboard shortcuts, Caps Lock configuration, terminal clipboard bindings.
 - Voxtype clipboard/paste integration for Wayland and XWayland.
 - Source for hyprbars, the native-minimize bridge, and the omarchy-windows native Aero Snap component.
-- Optional 4K/60 Hz, scale-2 LG TV HDR profile and source-built HDR exposure slider.
+- Notification center: toasts expire like Windows and land in a clock-triggered history + calendar flyout with Do not disturb.
+- Settings app backed by real system state: GTK and terminal text size independent of taskbar/icons, HDR brightness, This PC, sound, network, Bluetooth, storage and native Omarchy settings, with search.
+- Explorer-style Files: always-visible pasteable path bar, **Open in Terminal** and **Copy as path** right-click items; Windows Terminal-style copy/paste in foot.
+- Taskbar groups windows per app with click-to-switch previews that close reliably while windows open and close.
+- Wi-Fi, Bluetooth and sound flyouts pass network names, passwords and device IDs without a shell; the Wi-Fi password goes to NetworkManager on stdin, never in a command line.
+- Optional 4K/60 Hz, scale-1.75 LG TV HDR profile and source-built HDR exposure slider that brightens every app uniformly.
 - App launcher integrations and optional package installation instructions.
 
 ## Compatibility

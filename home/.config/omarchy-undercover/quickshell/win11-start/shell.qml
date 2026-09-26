@@ -15,11 +15,11 @@ ShellRoot {
       bottom: true
     }
     margins {
-      bottom: 52
+      bottom: 40
     }
 
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.namespace: "omarchy-menu"
+    WlrLayershell.namespace: "win11-start"
     WlrLayershell.keyboardFocus: WlrKeyboardFocus.OnDemand
     exclusiveZone: 0
     color: "transparent"
@@ -52,6 +52,9 @@ ShellRoot {
     }
 
     function runCmd(cmd) {
+      // Hide first so the menu vanishes on click instead of lingering while
+      // the process tears down (upstream v5.7.0).
+      startWindow.visible = false
       Quickshell.execDetached(["bash", "-c", cmd])
       Qt.quit()
     }
@@ -88,7 +91,7 @@ ShellRoot {
     }
 
     // Pinned Applications (6x3 grid)
-    property var pinnedApps: [{"name": "Google Chrome", "iconUrl": "file://@HOME@/.local/share/icons/win11/google-chrome.svg", "exec": "/usr/bin/google-chrome-stable"}, {"name": "Files", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/org.gnome.Nautilus.svg", "exec": "nautilus --new-window"}, {"name": "Discord", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/omarchy-discord.png", "exec": "omarchy-launch-webapp https://discord.com/channels/@me"}, {"name": "Settings", "iconUrl": "file://@HOME@/.local/share/icons/win11/settings.svg", "exec": "omarchy menu summon setup"}, {"name": "Task Manager", "iconUrl": "file://@HOME@/.local/share/icons/hicolor/128x128/apps/tmog-task-manager.png", "exec": "@HOME@/.local/bin/tmog-task-manager"}, {"name": "Writer", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-writer.png", "exec": "libreoffice --writer"}, {"name": "Calc", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-calc.png", "exec": "libreoffice --calc"}, {"name": "Impress", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-impress.png", "exec": "libreoffice --impress"}, {"name": "Google Photos", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/google-photos.png", "exec": "omarchy-launch-webapp https://photos.google.com/"}, {"name": "Omacalc", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/omacalc.svg", "exec": "omacalc"}, {"name": "Pinta", "iconUrl": "file:///usr/share/icons/hicolor/16x16/apps/com.github.PintaProject.Pinta.png", "exec": "pinta"}, {"name": "Obsidian", "iconUrl": "file:///usr/share/icons/hicolor/512x512/apps/obsidian.png", "exec": "/usr/bin/obsidian"}, {"name": "OBS Studio", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/com.obsproject.Studio.png", "exec": "obs"}, {"name": "Media Player", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/mpv.png", "exec": "mpv --player-operation-mode=pseudo-gui --"}, {"name": "Disks", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/org.gnome.DiskUtility.svg", "exec": "gnome-disks"}, {"name": "Terminal", "iconUrl": "file:///usr/share/icons/hicolor/48x48/apps/foot.png", "exec": "foot"}, {"name": "ChatGPT", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/chatgpt.png", "exec": "chatgpt"}, {"name": "LocalSend", "iconUrl": "file:///usr/share/icons/hicolor/512x512/apps/localsend.png", "exec": "localsend"}]
+    property var pinnedApps: [{"name": "Google Chrome", "iconUrl": "file://@HOME@/.local/share/icons/win11/google-chrome.svg", "exec": "/usr/bin/google-chrome-stable"}, {"name": "Files", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/org.gnome.Nautilus.svg", "exec": "nautilus --new-window"}, {"name": "Discord", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/omarchy-discord.png", "exec": "omarchy-launch-webapp https://discord.com/channels/@me"}, {"name": "Settings", "iconUrl": "file://@HOME@/.local/share/icons/win11/settings.svg", "exec": "omarchy-win11-settings"}, {"name": "Task Manager", "iconUrl": "file://@HOME@/.local/share/icons/hicolor/128x128/apps/tmog-task-manager.png", "exec": "@HOME@/.local/bin/tmog-task-manager"}, {"name": "Writer", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-writer.png", "exec": "libreoffice --writer"}, {"name": "Calc", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-calc.png", "exec": "libreoffice --calc"}, {"name": "Impress", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/libreoffice-impress.png", "exec": "libreoffice --impress"}, {"name": "Google Photos", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/google-photos.png", "exec": "omarchy-launch-webapp https://photos.google.com/"}, {"name": "Omacalc", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/omacalc.svg", "exec": "omacalc"}, {"name": "Pinta", "iconUrl": "file:///usr/share/icons/hicolor/16x16/apps/com.github.PintaProject.Pinta.png", "exec": "pinta"}, {"name": "Obsidian", "iconUrl": "file:///usr/share/icons/hicolor/512x512/apps/obsidian.png", "exec": "/usr/bin/obsidian"}, {"name": "OBS Studio", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/com.obsproject.Studio.png", "exec": "obs"}, {"name": "Media Player", "iconUrl": "file:///usr/share/icons/hicolor/128x128/apps/mpv.png", "exec": "mpv --player-operation-mode=pseudo-gui --"}, {"name": "Disks", "iconUrl": "file:///usr/share/icons/hicolor/scalable/apps/org.gnome.DiskUtility.svg", "exec": "gnome-disks"}, {"name": "Terminal", "iconUrl": "file:///usr/share/icons/hicolor/48x48/apps/foot.png", "exec": "foot"}, {"name": "ChatGPT", "iconUrl": "file:///usr/share/icons/hicolor/256x256/apps/chatgpt.png", "exec": "chatgpt"}, {"name": "LocalSend", "iconUrl": "file:///usr/share/icons/hicolor/512x512/apps/localsend.png", "exec": "localsend"}]
 
     // Dynamic System Applications Catalog (Discovered from XDG .desktop files)
     property var allAppsList: []
@@ -143,11 +146,11 @@ ShellRoot {
     Rectangle {
       id: bg
       anchors.fill: parent
-      radius: 12
-      color: startWindow.isDark
-             ? (startWindow.isTransparent ? Qt.rgba(0.12, 0.13, 0.17, 0.96) : "#202024")
+      radius: 8
+      color: startWindow.isDark 
+             ? (startWindow.isTransparent ? Qt.rgba(0.125, 0.125, 0.125, 0.86) : "#202024")
              : (startWindow.isTransparent ? Qt.rgba(0.97, 0.97, 0.98, 0.90) : "#f5f5f8")
-      border.color: startWindow.isDark ? Qt.rgba(1, 1, 1, 0.14) : Qt.rgba(0, 0, 0, 0.10)
+      border.color: startWindow.isDark ? Qt.rgba(1, 1, 1, 0.08) : Qt.rgba(0, 0, 0, 0.10)
       border.width: 1
 
       ColumnLayout {
@@ -285,6 +288,8 @@ ShellRoot {
             // 6-Column Pinned Apps Grid
             GridLayout {
               Layout.fillWidth: true
+              Layout.fillHeight: false
+              Layout.alignment: Qt.AlignTop
               columns: 6
               rowSpacing: 8
               columnSpacing: 4
@@ -370,6 +375,8 @@ ShellRoot {
             // Recommended Items (2 Columns)
             GridLayout {
               Layout.fillWidth: true
+              Layout.fillHeight: false
+              Layout.alignment: Qt.AlignTop
               columns: 2
               rowSpacing: 4
               columnSpacing: 12
@@ -422,6 +429,7 @@ ShellRoot {
                 }
               }
             }
+            Item { Layout.fillHeight: true }
           }
 
           // VIEW 1: All Apps A-Z Drawer

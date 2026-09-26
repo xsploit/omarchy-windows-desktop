@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# Widgets board — the Windows 11 weather-corner click target.
+#
+# undercover.win11-weather calls this; it was never installed, so the click
+# did nothing. Same toggle shape as the other omarchy-win11-* dispatchers.
+
+CONFIG_DIR="$HOME/.config/omarchy-undercover"
+QS_SRC="$CONFIG_DIR/quickshell/win11-widgets"
+
+if pgrep -f "quickshell -p .*win11-widgets" >/dev/null; then
+    pkill -f "quickshell -p .*win11-widgets"
+    exit 0
+fi
+
+if command -v quickshell >/dev/null 2>&1 && [[ -d "$QS_SRC" ]]; then
+    exec quickshell -p "$QS_SRC"
+fi
+echo "win11-widgets flyout not found at $QS_SRC" >&2
+exit 1

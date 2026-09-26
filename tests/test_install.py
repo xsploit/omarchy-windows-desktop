@@ -13,7 +13,7 @@ class InstallTest(unittest.TestCase):
    self.assertNotIn('@HOME@',(cfg/'bindings.lua').read_text())
    self.assertNotIn('hl.plugin.load(', (cfg/'titlebars.lua').read_text())
    c=json.loads((home/'.config/omarchy/shell.json').read_text())
-   self.assertEqual(c['bar']['layout']['center'][0]['id'],'undercover.win11-taskbar')
+   self.assertEqual([e['id'] for e in c['bar']['layout']['center']][:3],['undercover.win11-start','undercover.win11-search','undercover.win11-taskbar'])
    backup=next((home/'.local/state/omarchy-windows-desktop/backups').iterdir())
    subprocess.run(['python3',str(ROOT/'restore.py'),str(backup)],check=True)
    self.assertEqual((cfg/'input.lua').read_text(),'-- my old input\n')

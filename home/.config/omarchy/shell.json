@@ -4,6 +4,12 @@
     "layout": {
       "center": [
         {
+          "id": "undercover.win11-start"
+        },
+        {
+          "id": "undercover.win11-search"
+        },
+        {
           "id": "undercover.win11-taskbar"
         }
       ],
@@ -15,6 +21,9 @@
       "right": [
         {
           "id": "subsect.tray"
+        },
+        {
+          "id": "voice.indicator"
         },
         {
           "id": "omarchy.agents"
@@ -31,7 +40,7 @@
       ]
     },
     "position": "bottom",
-    "transparent": true,
+    "transparent": false,
     "id": "subsect.bar",
     "locked": true
   },
@@ -42,7 +51,19 @@
   "plugins": [
     {
       "id": "omarchy.menu"
+    },
+    {
+      "id": "subsect.notifications"
+    },
+    {
+      "id": "subsect.notification-center"
     }
   ],
-  "version": 1
+  "version": 1,
+  "disabledPlugins": [
+    "omarchy.notifications"
+  ],
+  "cloneSourceRestores": [
+    "subsect.notifications"
+  ]
 }
